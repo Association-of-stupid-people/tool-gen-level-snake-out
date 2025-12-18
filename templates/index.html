@@ -843,6 +843,10 @@
         // Avoid duplicate cells
         if (key === lastDragCell) return;
         
+        // Check if cell already in current snake path
+        const alreadyInPath = currentSnakePath.some(([pr, pc]) => pr === r && pc === c);
+        if (alreadyInPath) return;
+        
         // Check if cell is already occupied by non-snake
         if (gridData[key] && gridData[key].type !== 'temp-snake') {
           return;
@@ -1526,7 +1530,15 @@
       });
       
       // Initialize with one default color
-      addColor('#000000');
+      addColor('#ef8aa8');
+      addColor('#84d245');
+      addColor('#9536e9');
+      addColor('#34c4cc');
+      addColor('#f9743a');
+      addColor('#6b3c2c');
+      addColor('#f1c24f');
+      addColor('#477ff7');
+      addColor('#ee4226');
 
       document
         .getElementById("generate-form")
