@@ -57,8 +57,9 @@ def generate():
                 file.seek(0, io.SEEK_END)
                 file_size = file.tell()
                 file.seek(0)
-                if file_size > 5 * 1024 * 1024: 
-                    raise ValueError("Kích thước file quá lớn (tối đa 5MB).")
+                # Vercel has a 4.5MB limit for serverless functions
+                if file_size > 4.5 * 1024 * 1024: 
+                    raise ValueError("Kích thước file quá lớn (tối đa 4.5MB).")
                 uploaded_image_bytes = file.read() 
         
         # 4. Gọi hàm tạo level
@@ -84,5 +85,8 @@ def generate():
         print(f"LỖI KHI TẠO LEVEL: {e}")
         return jsonify({"error": f"Lỗi server khi tạo level: {e}"}), 500
 
+# For Vercel serverless deployment
+# The app instance is automatically used by Vercel
+# Local development: run with `python app.py`
 if __name__ == '__main__':
     app.run(debug=True)
