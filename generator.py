@@ -98,41 +98,67 @@ def is_in_emoji_shape(r, c, SHAPE_PARAMS):
 
 # --- HÀM TẠO JSON OUTPUT ---
 
-def create_position_object(r, c, ROWS, COLS):
-    """
-    Chuyển đổi tọa độ lưới (r, c) sang position object với hệ center-origin.
-    Gốc tọa độ (0, 0) ở giữa lưới.
-    """
-    x = c - COLS // 2
-    y = ROWS // 2 - r
-    return {
-        "x": x,
-        "y": y
-    }
-
 def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counters=None):
     """
     Tạo JSON data cho level với format:
     [
         {"position": [...], "itemType": "snake/wall/hole/tunnel", "itemValueConfig": 0}
     ]
+    Gốc tọa độ (0, 0) nằm ở tâm của bounding box chứa tất cả items.
     """
     level_data = []
     wall_counters = wall_counters or {}
     
-    # 1. Thêm tất cả snake (arrow)
+    # 1. Thu thập tất cả positions để tính bounding box
+    all_positions = []
+    
+    # Collect from snakes
+    for path_indices in final_paths_indices:
+        all_positions.extend(path_indices)
+    
+    # Collect from obstacles
+    for pos in obstacles.keys():
+        all_positions.append(pos)
+    
+    # 2. Tính center của bounding box (rounded to integer)
+    if not all_positions:
+        # Fallback to grid center if no items
+        center_r = ROWS // 2
+        center_c = COLS // 2
+    else:
+        rows = [r for r, c in all_positions]
+        cols = [c for r, c in all_positions]
+        min_r, max_r = min(rows), max(rows)
+        min_c, max_c = min(cols), max(cols)
+        center_r = round((min_r + max_r) / 2)
+        center_c = round((min_c + max_c) / 2)
+    
+    # 3. Helper function to convert grid position to center-origin
+    def create_position_object(r, c):
+        """
+        Chuyển đổi tọa độ lưới (r, c) sang position object.
+        Gốc tọa độ (0, 0) ở tâm của bounding box chứa tất cả items.
+        """
+        x = c - center_c
+        y = center_r - r
+        return {
+            "x": x,
+            "y": y
+        }
+    
+    # 4. Thêm tất cả snake (arrow)
     for path_indices in final_paths_indices:
         # Đảo ngược thứ tự: position[0] phải là đầu rắn (arrow head)
         # path_indices[-1] là đầu rắn, path_indices[0] là đuôi
         reversed_path = list(reversed(path_indices))
-        position_objects = [create_position_object(r, c, ROWS, COLS) for (r, c) in reversed_path]
+        position_objects = [create_position_object(r, c) for (r, c) in reversed_path]
         level_data.append({
             "position": position_objects,
             "itemType": "snake",
             "itemValueConfig": 0
         })
     
-    # 2. Phân loại obstacles
+    # 5. Phân loại obstacles
     tunnel_positions = set(tunnel_map.keys())
     processed_tunnels = set()
     
@@ -142,8 +168,8 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
             if (r, c) not in processed_tunnels:
                 partner = tunnel_map[(r, c)]
                 position_objects = [
-                    create_position_object(r, c, ROWS, COLS),
-                    create_position_object(partner[0], partner[1], ROWS, COLS)
+                    create_position_object(r, c),
+                    create_position_object(partner[0], partner[1])
                 ]
                 level_data.append({
                     "position": position_objects,
@@ -153,14 +179,14 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
                 processed_tunnels.add((r, c))
                 processed_tunnels.add(partner)
         elif color == (0, 0, 255):  # Hole (màu xanh dương)
-            position_objects = [create_position_object(r, c, ROWS, COLS)]
+            position_objects = [create_position_object(r, c)]
             level_data.append({
                 "position": position_objects,
                 "itemType": "hole",
                 "itemValueConfig": 0
             })
         elif color == (128, 0, 128):  # Wall (màu tím)
-            position_objects = [create_position_object(r, c, ROWS, COLS)]
+            position_objects = [create_position_object(r, c)]
             counter_value = wall_counters.get((r, c), 0)
             level_data.append({
                 "position": position_objects,

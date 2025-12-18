@@ -1043,11 +1043,39 @@
       function exportCustomLevel() {
         const levelData = [];
         
-        // Always use current grid size for center calculation
-        const centerC = Math.floor(gridCols / 2);
-        const centerR = Math.floor(gridRows / 2);
+        // 1. Collect all positions to calculate bounding box
+        const allPositions = [];
         
-        // Helper function to convert grid position to center-origin
+        // From snakes
+        snakes.forEach(snake => {
+          snake.path.forEach(([r, c]) => allPositions.push({r, c}));
+        });
+        
+        // From obstacles
+        Object.keys(gridData).forEach(key => {
+          const [r, c] = key.split('_').map(Number);
+          allPositions.push({r, c});
+        });
+        
+        // 2. Calculate bounding box center (rounded to integer)
+        let centerR, centerC;
+        if (allPositions.length === 0) {
+          // Fallback to grid center if no items
+          centerR = Math.floor(gridRows / 2);
+          centerC = Math.floor(gridCols / 2);
+        } else {
+          const rows = allPositions.map(p => p.r);
+          const cols = allPositions.map(p => p.c);
+          const minR = Math.min(...rows);
+          const maxR = Math.max(...rows);
+          const minC = Math.min(...cols);
+          const maxC = Math.max(...cols);
+          centerR = Math.round((minR + maxR) / 2);
+          centerC = Math.round((minC + maxC) / 2);
+        }
+        
+        // 3. Helper function to convert grid position to center-origin
+        // Origin (0,0) is at the center of bounding box containing all items
         function gridToPos(r, c) {
           return {
             x: c - centerC,
@@ -1055,7 +1083,7 @@
           };
         }
         
-        // Export snakes
+        // 4. Export snakes
         snakes.forEach(snake => {
           const positions = snake.path.map(([r, c]) => gridToPos(r, c));
           levelData.push({
@@ -1278,7 +1306,7 @@
             const [r, c] = posToGrid(item.position[0]);
             if (isValidPos(r, c)) {
               const key = getCellKey(r, c);
-              gridData[key] = { type: 'wall', counter: item.counter || 0 };
+              gridData[key] = { type: 'wall', counter: item.itemValueConfig || 0 };
             }
           } else if (item.itemType === 'hole') {
             const [r, c] = posToGrid(item.position[0]);
