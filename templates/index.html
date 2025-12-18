@@ -750,7 +750,7 @@
           const newSnakes = [];
           snakes.forEach(snake => {
             const newPath = snake.path.map(([r, c]) => [r + offsetR, c + offsetC]);
-            newSnakes.push({ path: newPath });
+            newSnakes.push({ path: newPath, colorID: snake.colorID });
           });
           snakes = newSnakes;
           
@@ -1049,7 +1049,7 @@
           const points = pathCoords.map(p => `${p.x},${p.y}`).join(' ');
           polyline.setAttribute('points', points);
           polyline.setAttribute('stroke', color);
-          polyline.setAttribute('stroke-width', '4');
+          polyline.setAttribute('stroke-width', '3');
           polyline.setAttribute('stroke-opacity', opacity);
           polyline.setAttribute('fill', 'none');
           svg.appendChild(polyline);

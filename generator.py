@@ -6,7 +6,7 @@ import base64
 
 # --- Cấu hình Cố định ---
 CELL_SIZE = 25
-LINE_WIDTH = 4
+LINE_WIDTH = 3
 ARROW_HEAD_SIZE = 5 
 MAX_SIDE = 150 
 
