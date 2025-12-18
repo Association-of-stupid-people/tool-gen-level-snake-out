@@ -219,6 +219,40 @@
         border: 2px solid #ddd;
         border-radius: 4px;
       }
+      .color-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border: 2px solid #ddd;
+        border-radius: 4px;
+      }
+      .color-item input[type="color"] {
+        width: 50px;
+        height: 35px;
+        padding: 0;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      .color-item button {
+        width: auto;
+        padding: 4px 8px;
+        margin: 0;
+        background-color: #dc3545;
+        font-size: 12px;
+      }
+      .color-item button:hover {
+        background-color: #c82333;
+      }
+      .color-item label {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 500;
+        color: #666;
+        min-width: 60px;
+      }
       .wall-counter-item input {
         width: 50px;
         padding: 6px;
@@ -507,6 +541,18 @@
           </div>
         </div>
 
+        <div style="margin-bottom: 15px;">
+          <label>Snake Colors:</label>
+          <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+            <button type="button" id="add-color-btn" style="width: auto; padding: 8px 16px; background-color: #6c757d;">
+              ➕ Add Color
+            </button>
+          </div>
+          <div id="colors-container" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">
+            <!-- Color pickers will be added here -->
+          </div>
+        </div>
+
         <div class="divider"></div>
 
         <label for="shape_input">1. Chọn hình dạng Level:</label>
@@ -602,6 +648,10 @@
 
     <script>
       let currentLevelJson = null; // Lưu JSON data để export
+      
+      // ========== COLOR MANAGEMENT ==========
+      let colorList = ['#000000']; // Default: black color
+      let colorIndexCounter = 0;
 
       // ========== JSON EXPORT FUNCTIONS ==========
       function downloadJSON(jsonData, filename) {
@@ -830,6 +880,24 @@
         const c = parseInt(e.target.dataset.col);
         const key = getCellKey(r, c);
 
+        // If clicking on snake cell with snake tool, cycle color
+        if (currentTool === 'snake') {
+          const snakeIndex = snakes.findIndex(snake => 
+            snake.path.some(([sr, sc]) => sr === r && sc === c)
+          );
+          
+          if (snakeIndex !== -1) {
+            // Cycle to next color in colorList
+            if (colorList.length > 0) {
+              const currentColorID = snakes[snakeIndex].colorID !== undefined ? snakes[snakeIndex].colorID : -1;
+              const nextColorID = (currentColorID + 1) % colorList.length;
+              snakes[snakeIndex].colorID = nextColorID;
+              updateGrid();
+            }
+            return;
+          }
+        }
+
         if (currentTool === 'wall') {
           if (gridData[key]) delete gridData[key];
           const counterValue = parseInt(document.getElementById('wall-counter-input').value) || 3;
@@ -867,7 +935,13 @@
         if (currentSnakePath.length >= 2) {
           // Reverse so last added is head
           const reversedPath = [...currentSnakePath].reverse();
-          snakes.push({ path: reversedPath });
+          
+          // Assign random color from colorList
+          const colorID = colorList.length > 0 
+            ? Math.floor(Math.random() * colorList.length)
+            : -1;
+          
+          snakes.push({ path: reversedPath, colorID: colorID });
           
           // Convert temp-snake to permanent
           currentSnakePath.forEach(([r, c]) => {
@@ -975,7 +1049,7 @@
           const points = pathCoords.map(p => `${p.x},${p.y}`).join(' ');
           polyline.setAttribute('points', points);
           polyline.setAttribute('stroke', color);
-          polyline.setAttribute('stroke-width', '2');
+          polyline.setAttribute('stroke-width', '4');
           polyline.setAttribute('stroke-opacity', opacity);
           polyline.setAttribute('fill', 'none');
           svg.appendChild(polyline);
@@ -1009,13 +1083,20 @@
           svg.appendChild(arrow);
         }
         
-        // Draw completed snakes (black, solid)
+        // Draw completed snakes with their colors
         snakes.forEach(snake => {
           const pathCoords = snake.path.map(([r, c]) => ({
             x: c * 20 + 10,
             y: r * 20 + 10
           }));
-          drawArrow(pathCoords, '#000', '1.0');
+          
+          // Get color from colorList based on colorID
+          const colorID = snake.colorID !== undefined ? snake.colorID : -1;
+          const color = (colorID >= 0 && colorID < colorList.length) 
+            ? colorList[colorID] 
+            : '#000000';
+          
+          drawArrow(pathCoords, color, '1.0');
         });
         
         // Draw preview snake while dragging (gray, semi-transparent)
@@ -1086,10 +1167,12 @@
         // 4. Export snakes
         snakes.forEach(snake => {
           const positions = snake.path.map(([r, c]) => gridToPos(r, c));
+          const colorID = snake.colorID !== undefined ? snake.colorID : -1;
           levelData.push({
             position: positions,
             itemType: 'snake',
-            itemValueConfig: 0
+            itemValueConfig: 0,
+            colorID: colorID
           });
         });
 
@@ -1103,13 +1186,15 @@
             levelData.push({
               position: [gridToPos(r, c)],
               itemType: 'wall',
-              itemValueConfig: item.counter || 0
+              itemValueConfig: item.counter || 0,
+              colorID: -1
             });
           } else if (item.type === 'hole') {
             levelData.push({
               position: [gridToPos(r, c)],
               itemType: 'hole',
-              itemValueConfig: 0
+              itemValueConfig: 0,
+              colorID: -1
             });
           } else if (item.type === 'tunnel' && item.pair && !processedTunnels.has(key)) {
             const pair = item.pair;
@@ -1123,7 +1208,8 @@
                 gridToPos(pair.r, pair.c)
               ],
               itemType: 'tunnel',
-              itemValueConfig: 0
+              itemValueConfig: 0,
+              colorID: -1
             });
           }
         });
@@ -1297,10 +1383,11 @@
         // Load items into grid
         levelJson.forEach(item => {
           if (item.itemType === 'snake') {
-            // Add snake
+            // Add snake with colorID
             const path = item.position.map(pos => posToGrid(pos)).filter(([r, c]) => isValidPos(r, c));
+            const colorID = item.colorID !== undefined ? item.colorID : -1;
             if (path.length >= 2) {
-              snakes.push({ path });
+              snakes.push({ path, colorID });
             }
           } else if (item.itemType === 'wall') {
             const [r, c] = posToGrid(item.position[0]);
@@ -1372,6 +1459,75 @@
         }
       });
 
+      // ========== COLOR MANAGEMENT ==========
+      
+      function addColor(colorValue = '#000000') {
+        const container = document.getElementById('colors-container');
+        const index = colorList.length;
+        colorList.push(colorValue);
+        
+        const colorItem = document.createElement('div');
+        colorItem.className = 'color-item';
+        colorItem.dataset.index = index;
+        colorItem.innerHTML = `
+          <label>Color ${index + 1}:</label>
+          <input type="color" class="color-picker" value="${colorValue}" />
+          <button type="button" class="remove-color-btn">🗑️</button>
+        `;
+        
+        // Update colorList when color changes
+        colorItem.querySelector('.color-picker').addEventListener('change', function(e) {
+          colorList[index] = e.target.value;
+        });
+        
+        // Add remove handler
+        colorItem.querySelector('.remove-color-btn').addEventListener('click', function() {
+          removeColor(index);
+        });
+        
+        container.appendChild(colorItem);
+      }
+      
+      function removeColor(indexToRemove) {
+        colorList.splice(indexToRemove, 1);
+        renderColorsList();
+      }
+      
+      function renderColorsList() {
+        const container = document.getElementById('colors-container');
+        container.innerHTML = '';
+        
+        colorList.forEach((color, index) => {
+          const colorItem = document.createElement('div');
+          colorItem.className = 'color-item';
+          colorItem.dataset.index = index;
+          colorItem.innerHTML = `
+            <label>Color ${index + 1}:</label>
+            <input type="color" class="color-picker" value="${color}" />
+            <button type="button" class="remove-color-btn">🗑️</button>
+          `;
+          
+          // Update colorList when color changes
+          colorItem.querySelector('.color-picker').addEventListener('change', function(e) {
+            colorList[index] = e.target.value;
+          });
+          
+          // Add remove handler
+          colorItem.querySelector('.remove-color-btn').addEventListener('click', function() {
+            removeColor(index);
+          });
+          
+          container.appendChild(colorItem);
+        });
+      }
+      
+      document.getElementById('add-color-btn').addEventListener('click', function() {
+        addColor();
+      });
+      
+      // Initialize with one default color
+      addColor('#000000');
+
       document
         .getElementById("generate-form")
         .addEventListener("submit", function (e) {
@@ -1386,6 +1542,10 @@
           
           // Add wall counters to formData
           formData.set('wall_counters', JSON.stringify(wallCounters));
+          
+          // Add colors to formData
+          formData.set('colors', JSON.stringify(colorList));
+          
           const requiredCount = formData.get("arrow_count");
 
           const imageElement = document.getElementById("level-image");

@@ -43,6 +43,13 @@ def generate():
         except:
             wall_counters = []
         
+        # Parse colors from JSON string
+        colors_str = request.form.get('colors', '["#000000"]')
+        try:
+            color_list = json.loads(colors_str)
+        except:
+            color_list = ['#000000']
+        
         hole_count = safe_int('hole_count', 0)
         tunnel_count = safe_int('tunnel_count', 0)
         
@@ -73,7 +80,8 @@ def generate():
             max_bends=max_bends,
             wall_counters=wall_counters,
             hole_count=hole_count,
-            tunnel_count=tunnel_count
+            tunnel_count=tunnel_count,
+            color_list=color_list
         )
         
         # Trả về JSON chứa ảnh Base64 và số lượng đếm

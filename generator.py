@@ -6,7 +6,7 @@ import base64
 
 # --- Cấu hình Cố định ---
 CELL_SIZE = 25
-LINE_WIDTH = 2
+LINE_WIDTH = 4
 ARROW_HEAD_SIZE = 5 
 MAX_SIDE = 150 
 
@@ -98,16 +98,17 @@ def is_in_emoji_shape(r, c, SHAPE_PARAMS):
 
 # --- HÀM TẠO JSON OUTPUT ---
 
-def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counters=None):
+def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counters=None, snake_colors=None):
     """
     Tạo JSON data cho level với format:
     [
-        {"position": [...], "itemType": "snake/wall/hole/tunnel", "itemValueConfig": 0}
+        {"position": [...], "itemType": "snake/wall/hole/tunnel", "itemValueConfig": 0, "colorID": 0}
     ]
     Gốc tọa độ (0, 0) nằm ở tâm của bounding box chứa tất cả items.
     """
     level_data = []
     wall_counters = wall_counters or {}
+    snake_colors = snake_colors or []
     
     # 1. Thu thập tất cả positions để tính bounding box
     all_positions = []
@@ -147,15 +148,17 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
         }
     
     # 4. Thêm tất cả snake (arrow)
-    for path_indices in final_paths_indices:
+    for idx, path_indices in enumerate(final_paths_indices):
         # Đảo ngược thứ tự: position[0] phải là đầu rắn (arrow head)
         # path_indices[-1] là đầu rắn, path_indices[0] là đuôi
         reversed_path = list(reversed(path_indices))
         position_objects = [create_position_object(r, c) for (r, c) in reversed_path]
+        color_id = snake_colors[idx] if idx < len(snake_colors) else -1
         level_data.append({
             "position": position_objects,
             "itemType": "snake",
-            "itemValueConfig": 0
+            "itemValueConfig": 0,
+            "colorID": color_id
         })
     
     # 5. Phân loại obstacles
@@ -174,7 +177,8 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
                 level_data.append({
                     "position": position_objects,
                     "itemType": "tunnel",
-                    "itemValueConfig": 0
+                    "itemValueConfig": 0,
+                    "colorID": -1
                 })
                 processed_tunnels.add((r, c))
                 processed_tunnels.add(partner)
@@ -183,7 +187,8 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
             level_data.append({
                 "position": position_objects,
                 "itemType": "hole",
-                "itemValueConfig": 0
+                "itemValueConfig": 0,
+                "colorID": -1
             })
         elif color == (128, 0, 128):  # Wall (màu tím)
             position_objects = [create_position_object(r, c)]
@@ -191,7 +196,8 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
             level_data.append({
                 "position": position_objects,
                 "itemType": "wall",
-                "itemValueConfig": counter_value
+                "itemValueConfig": counter_value,
+                "colorID": -1
             })
     
     return level_data
@@ -249,6 +255,12 @@ def draw_grid_lines(draw, ROWS, COLS, occupied_cells, obstacles, tunnel_position
 
 def draw_snake_arrow(draw, path_coords, color="black"):
     if len(path_coords) < 2: return
+    # Convert hex color to RGB tuple if needed
+    if isinstance(color, str) and color.startswith('#'):
+        try:
+            color = tuple(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+        except:
+            color = "black"
     draw.line(path_coords, fill=color, width=LINE_WIDTH)
     end_x, end_y = path_coords[-1]; prev_x, prev_y = path_coords[-2]
     dx = end_x - prev_x; dy = end_y - prev_y; size = ARROW_HEAD_SIZE 
@@ -391,7 +403,7 @@ def generate_random_snake(start_r, start_c, min_length, max_length, occupied_cel
 # --- Hàm tạo level chính (ĐÃ HOÀN THIỆN) ---
 def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=None, 
                          min_arrow_length=2, max_arrow_length=10, 
-                         min_bends=0, max_bends=5, wall_counters=None, hole_count=0, tunnel_count=0):    
+                         min_bends=0, max_bends=5, wall_counters=None, hole_count=0, tunnel_count=0, color_list=None):    
     # 1. ÁP DỤNG ĐỘ KHÓ VÀ INPUT TỪ NGƯỜI DÙNG
     FIXED_DENSITY_FACTOR = 2.2 
     
@@ -447,10 +459,14 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
     img = Image.new('RGB', (WIDTH, HEIGHT), color='white')
     draw = ImageDraw.Draw(img)
 
+    # Initialize color list
+    color_list = color_list or ['#000000']
+    
     occupied_cells = set() 
     occupied_ends = {} 
     final_paths_pixels = [] 
     final_paths_indices = []  # Lưu grid indices cho JSON export
+    final_paths_colors = []  # Lưu colorID cho mỗi snake
     
     attempts = 0
     max_attempts = 100000 
@@ -491,6 +507,10 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
             
             # Lưu grid indices cho JSON export
             final_paths_indices.append(list(snake_path_indices))
+            
+            # Assign random color from color list
+            color_id = random.randint(0, len(color_list) - 1) if color_list else -1
+            final_paths_colors.append(color_id)
             
             pixel_path = []
             for (pr, pc) in snake_path_indices:
@@ -539,10 +559,16 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
 # --- VẼ CUỐI CÙNG ---
     draw_grid_lines(draw, ROWS, COLS, occupied_cells, obstacles, tunnel_positions, wall_counter_map)
 
-    for path_pixels in final_paths_pixels:
-        index_path = [(py // CELL_SIZE, px // CELL_SIZE) for (px, py) in path_pixels]
-        is_move = is_movable(index_path, occupied_cells, ROWS, COLS, hole_positions, tunnel_map)
-        draw_snake_arrow(draw, path_pixels, color="red" if is_move else "black")
+    for idx, path_pixels in enumerate(final_paths_pixels):
+        # Get color from color_list based on colorID
+        color_id = final_paths_colors[idx] if idx < len(final_paths_colors) else -1
+        if color_id >= 0 and color_id < len(color_list):
+            snake_color = color_list[color_id]
+        else:
+            snake_color = "#000000"  # Default black
+        
+        # Draw snake with assigned color
+        draw_snake_arrow(draw, path_pixels, color=snake_color)
             
     img_io = io.BytesIO()
     img.save(img_io, 'PNG')
@@ -551,7 +577,7 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
     base64_image = base64.b64encode(img_io.read()).decode('utf-8')
     
     # Tạo JSON data cho level
-    level_json = generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counter_map)
+    level_json = generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counter_map, final_paths_colors)
     
     return {
         'base64_image': base64_image,
