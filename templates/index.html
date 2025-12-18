@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Arrow Level Generator</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background-color: #f4f4f9;
+      }
+      .container {
+        max-width: 1400px;
+        margin: auto;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .form-container {
+        max-width: 600px;
+        margin: 0 auto 20px auto;
+      }
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #ddd;
+      }
+      .tab-button {
+        padding: 12px 24px;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 500;
+        color: #666;
+        transition: all 0.3s;
+        width: auto;
+      }
+      .tab-button:hover {
+        color: #007bff;
+        background: none;
+      }
+      .tab-button.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
+        background: none;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .custom-level-container {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+      }
+      .grid-canvas {
+        border: 2px solid #333;
+        background: white;
+        flex-shrink: 0;
+        position: relative;
+      }
+      #grid-svg-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+      }
+      .grid-cell {
+        width: 20px;
+        height: 20px;
+        border: 1px solid #eee;
+        display: inline-block;
+        cursor: pointer;
+        box-sizing: border-box;
+        user-select: none;
+      }
+      .grid-cell:active {
+        cursor: grabbing;
+      }
+      .grid-row {
+        display: flex;
+        height: 20px;
+      }
+      .toolbox {
+        min-width: 200px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+      }
+      .toolbox h3 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #333;
+      }
+      .tool-option {
+        padding: 12px;
+        margin-bottom: 8px;
+        background: white;
+        border: 2px solid #ddd;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+        font-weight: 500;
+      }
+      .tool-option:hover {
+        background: #f0f0f0;
+      }
+      .tool-option.active {
+        background: #007bff;
+        color: white;
+        border-color: #0056b3;
+      }
+      .grid-cell.snake {
+        background: #dcdcdc;
+        border-color: #ccc;
+      }
+      .grid-cell.snake-head {
+        background: #dcdcdc;
+        border-color: #ccc;
+        position: relative;
+      }
+      .grid-cell.wall {
+        background: #800080;
+      }
+      .grid-cell.hole {
+        background: #0000ff;
+      }
+      .grid-cell.tunnel {
+        background: #00bcd4;
+        border-radius: 50%;
+      }
+      .grid-cell.temp-snake {
+        background: #e0e0e0;
+        opacity: 0.8;
+      }
+      .custom-actions {
+        margin-top: 20px;
+      }
+      .custom-actions button {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+      .grid-controls {
+        margin-bottom: 15px;
+      }
+      .grid-controls label {
+        font-size: 14px;
+        margin-right: 5px;
+      }
+      .grid-controls input {
+        width: 60px;
+        padding: 5px;
+        margin-right: 10px;
+      }
+      .wall-counter-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border: 2px solid #ddd;
+        border-radius: 4px;
+      }
+      .wall-counter-item input {
+        width: 50px;
+        padding: 6px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        text-align: center;
+        font-weight: bold;
+      }
+      .wall-counter-item button {
+        width: auto;
+        padding: 4px 8px;
+        margin: 0;
+        background-color: #dc3545;
+        font-size: 12px;
+      }
+      .wall-counter-item button:hover {
+        background-color: #c82333;
+      }
+      .wall-counter-item label {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 500;
+        color: #666;
+      }
+      .results-wrapper {
+        display: none;
+        gap: 20px;
+        margin-top: 20px;
+        align-items: flex-start;
+      }
+      .results-wrapper > div {
+        flex: 1;
+        min-width: 0;
+      }
+      #result-area {
+        text-align: center;
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+      }
+      label {
+        display: block;
+        margin-top: 10px;
+        font-weight: bold;
+        color: #555;
+      }
+      input[type="number"],
+      input[type="text"],
+      input[type="file"],
+      select {
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        width: 100%;
+        font-size: 16px;
+        transition: background-color 0.3s;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      #level-image {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      #arrow-count-display {
+        font-weight: bold;
+        margin-top: 10px;
+      }
+      .warning {
+        color: red;
+        margin-top: 10px;
+      }
+      #csv-section {
+        display: none;
+      }
+      #csv-section h2 {
+        margin-top: 0;
+      }
+      @media (max-width: 1024px) {
+        .results-wrapper {
+          flex-direction: column;
+        }
+        .container {
+          max-width: 600px;
+        }
+      }
+      .divider {
+        margin: 20px 0;
+        border-top: 1px dashed #ccc;
+      }
+      .controls-group {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .controls-group > div {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1 style="text-align: center">Arrow Level Generator</h1>
+
+      <div class="tabs">
+        <button class="tab-button active" data-tab="generate-tab">
+          🎲 Generate Level
+        </button>
+        <button class="tab-button" data-tab="custom-tab">
+          ✏️ Custom Level
+        </button>
+      </div>
+
+      <div id="generate-tab" class="tab-content active">
+        <div class="form-container">
+          <form id="generate-form" enctype="multipart/form-data">
+        <label for="arrow_count">Số lượng Arrow Yêu cầu:</label>
+        <input
+          type="number"
+          id="arrow_count"
+          name="arrow_count"
+          value="100"
+          min="1"
+          max="1000"
+          required
+        />
+
+        <label>Độ dài Arrow (Ô):</label>
+        <div class="controls-group">
+          <div>
+            <label for="min_arrow_length">Min:</label>
+            <input
+              type="number"
+              id="min_arrow_length"
+              name="min_arrow_length"
+              value="2"
+              min="2"
+              required
+            />
+          </div>
+          <div>
+            <label for="max_arrow_length">Max:</label>
+            <input
+              type="number"
+              id="max_arrow_length"
+              name="max_arrow_length"
+              value="10"
+              min="2"
+              required
+            />
+          </div>
+        </div>
+
+        <label>Số lần Gấp Khúc:</label>
+        <div class="controls-group">
+          <div>
+            <label for="min_bends">Min:</label>
+            <input
+              type="number"
+              id="min_bends"
+              name="min_bends"
+              value="0"
+              min="0"
+              required
+            />
+          </div>
+          <div>
+            <label for="max_bends">Max:</label>
+            <input
+              type="number"
+              id="max_bends"
+              name="max_bends"
+              value="5"
+              min="0"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <label>Chướng ngại vật:</label>
+        
+        <div style="margin-bottom: 15px;">
+          <label for="wall_list">Wall (Counter):</label>
+          <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+            <button type="button" id="add-wall-btn" style="width: auto; padding: 8px 16px; background-color: #28a745;">
+              ➕ Add Wall
+            </button>
+            <button type="button" id="clear-walls-btn" style="width: auto; padding: 8px 16px; background-color: #dc3545;">
+              ❌ Clear All
+            </button>
+          </div>
+          <div id="wall-counters-container" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">
+            <!-- Wall counter inputs will be added here -->
+          </div>
+        </div>
+        
+        <div class="controls-group">
+          <div>
+            <label for="hole_count">Hole:</label>
+            <input
+              type="number"
+              id="hole_count"
+              name="hole_count"
+              value="0"
+              min="0"
+            />
+          </div>
+          <div>
+            <label for="tunnel_count">Tunnel (Cặp):</label>
+            <input
+              type="number"
+              id="tunnel_count"
+              name="tunnel_count"
+              value="0"
+              min="0"
+            />
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <label for="shape_input">1. Chọn hình dạng Level:</label>
+        <select id="shape_input" name="shape_input">
+          <option value="">🎲 Ngẫu nhiên</option>
+          <option value="HEART">❤️ Trái tim (HEART)</option>
+          <option value="SMILE_FACE">😀 Mặt cười (SMILE_FACE)</option>
+          <option value="DIAMOND_SHAPE">⭐ Kim cương (DIAMOND_SHAPE)</option>
+          <option value="RECTANGLE_SHAPE">📦 Hình chữ nhật (RECTANGLE_SHAPE)</option>
+        </select>
+
+        <label for="image_file">2. Hoặc Tải lên Hình ảnh (.png, .jpg):</label>
+        <input
+          type="file"
+          id="image_file"
+          name="image_file"
+          accept="image/png, image/jpeg"
+        />
+        <p class="warning">
+          Lưu ý: Nếu có ảnh upload, nó sẽ được ưu tiên làm hình dạng level.
+        </p>
+
+        <button type="submit">Tạo Level</button>
+          </form>
+        </div>
+
+        <div class="results-wrapper">
+        <div id="result-area">
+        <h2>Level Mới</h2>
+        <p id="arrow-count-display" style="display: none"></p>
+        <img
+          id="level-image"
+          src=""
+          alt="Hình ảnh Level Mũi Tên sẽ hiển thị ở đây"
+          style="display: none"
+        />
+      </div>
+
+      <div id="csv-section">
+        <h2>Xuất Dữ Liệu Level</h2>
+        <button id="download-csv-btn" type="button" style="background-color: #28a745;">
+          📥 Tải về CSV
+        </button>
+        <p style="font-size: 12px; color: #666; margin-top: 8px;">
+          Format: 7 cột (Level, LevelType, LevelTimer, ItemType, Position, ItemValueConfig, DifficultyScore)
+        </p>
+        </div>
+        </div>
+      </div>
+
+      <div id="custom-tab" class="tab-content">
+        <div class="custom-level-container">
+          <div>
+            <div class="grid-controls">
+              <label>Rows:</label>
+              <input type="number" id="grid-rows" value="20" min="10" max="50" />
+              <label>Cols:</label>
+              <input type="number" id="grid-cols" value="20" min="10" max="50" />
+              <button type="button" id="create-grid-btn" style="width: auto; padding: 8px 16px">
+                Create Grid
+              </button>
+            </div>
+            <div id="grid-canvas" class="grid-canvas">
+              <svg id="grid-svg-overlay"></svg>
+            </div>
+          </div>
+
+          <div class="toolbox">
+            <h3>🛠️ Tools</h3>
+            <div class="tool-option active" data-tool="snake" data-key="s">
+              🐍 New Snake <span style="float: right; font-size: 11px; color: #999;">[S]</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <div class="tool-option" data-tool="wall" data-key="w" style="flex: 1; margin: 0;">
+                🧱 Wall <span style="float: right; font-size: 11px; color: #999;">[W]</span>
+              </div>
+              <input type="number" id="wall-counter-input" min="0" max="99" value="3" 
+                     style="width: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-weight: bold; text-align: center;">
+            </div>
+            <div class="tool-option" data-tool="hole" data-key="h">
+              🕳️ Hole <span style="float: right; font-size: 11px; color: #999;">[H]</span>
+            </div>
+            <div class="tool-option" data-tool="tunnel" data-key="t">
+              🌀 Tunnel <span style="float: right; font-size: 11px; color: #999;">[T]</span>
+            </div>
+            <div class="tool-option" data-tool="delete">
+              🗑️ Delete <span style="float: right; font-size: 11px; color: #999;">[Right Click]</span>
+            </div>
+
+            <div class="custom-actions">
+              <button type="button" id="load-generated-btn" style="background-color: #6c757d">
+                📂 Load Generated Level
+              </button>
+              <button type="button" id="clear-grid-btn">
+                🔄 Clear All
+              </button>
+              <button type="button" id="download-custom-csv-btn" style="background-color: #28a745">
+                📥 Tải về CSV
+              </button>
+            </div>
+
+            <p style="font-size: 11px; color: #666; margin-top: 10px;">
+              Format: 7 cột (Level, LevelType, LevelTimer, ItemType, Position, ItemValueConfig, DifficultyScore)
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let currentLevelJson = null; // Lưu JSON data để export CSV
+
+      // ========== CSV EXPORT FUNCTIONS ==========
+      function convertLevelJsonToCSV(levelJson) {
+        const headers = ['Level','LevelType','LevelTimer','ItemType','Position','ItemValueConfig','DifficultyScore'];
+        let csv = headers.join(',') + '\n';
+        
+        levelJson.forEach(item => {
+          const position = JSON.stringify(item.position).replace(/"/g, '""'); // Escape quotes
+          const row = [
+            '',  // Level
+            '',  // LevelType
+            '',  // LevelTimer
+            item.itemType,
+            `"${position}"`,  // Position as quoted JSON string
+            item.counter || 0,  // ItemValueConfig
+            ''  // DifficultyScore
+          ];
+          csv += row.join(',') + '\n';
+        });
+        
+        return csv;
+      }
+
+      function downloadCSV(csvContent, filename) {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      // ========== TAB SWITCHING ==========
+      document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', function() {
+          const targetTab = this.getAttribute('data-tab');
+          
+          // Update buttons
+          document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+          this.classList.add('active');
+          
+          // Update content
+          document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+          document.getElementById(targetTab).classList.add('active');
+          
+          // If switching to custom tab and we have a generated level, load it
+          if (targetTab === 'custom-tab' && currentLevelJson && currentLevelJson.length > 0) {
+            if (confirm('Load the generated level into Custom editor?')) {
+              loadLevelIntoCustom(currentLevelJson);
+            }
+          }
+        });
+      });
+
+      // ========== CUSTOM LEVEL DRAWING ==========
+      let gridRows = 20;
+      let gridCols = 20;
+      let gridData = {}; // {row_col: {type: 'snake'|'wall'|'hole'|'tunnel', data: ...}}
+      let currentTool = 'snake';
+      let currentSnakePath = []; // Temporary path while drawing
+      let snakes = []; // List of completed snakes
+      let tunnelFirst = null; // First click for tunnel pair
+      let isDragging = false; // Track drag state for snake drawing
+      let lastDragCell = null; // Prevent duplicate cells while dragging
+
+      function createGrid(rows, cols, preserveData = false) {
+        const oldRows = gridRows;
+        const oldCols = gridCols;
+        
+        gridRows = rows;
+        gridCols = cols;
+        const canvas = document.getElementById('grid-canvas');
+        const width = cols * 20;
+        const height = rows * 20;
+        
+        // Check if we need to clear data when shrinking
+        if (preserveData && (rows < oldRows || cols < oldCols)) {
+          // Check if any data is outside new bounds
+          let hasDataOutside = false;
+          
+          // Check snakes
+          snakes.forEach(snake => {
+            snake.path.forEach(([r, c]) => {
+              if (r >= rows || c >= cols) {
+                hasDataOutside = true;
+              }
+            });
+          });
+          
+          // Check gridData
+          Object.keys(gridData).forEach(key => {
+            const [r, c] = key.split('_').map(Number);
+            if (r >= rows || c >= cols) {
+              hasDataOutside = true;
+            }
+          });
+          
+          if (hasDataOutside) {
+            if (!confirm('New grid size is smaller and will delete some items. Continue?')) {
+              return; // Cancel resize
+            }
+            clearGrid(); // Clear all data
+            preserveData = false;
+          }
+        }
+        
+        // If preserving data, center it in new grid
+        if (preserveData && (rows > oldRows || cols > oldCols)) {
+          const offsetR = Math.floor((rows - oldRows) / 2);
+          const offsetC = Math.floor((cols - oldCols) / 2);
+          
+          // Offset snakes
+          const newSnakes = [];
+          snakes.forEach(snake => {
+            const newPath = snake.path.map(([r, c]) => [r + offsetR, c + offsetC]);
+            newSnakes.push({ path: newPath });
+          });
+          snakes = newSnakes;
+          
+          // Offset gridData
+          const newGridData = {};
+          Object.keys(gridData).forEach(key => {
+            const [r, c] = key.split('_').map(Number);
+            const newKey = getCellKey(r + offsetR, c + offsetC);
+            newGridData[newKey] = { ...gridData[key] };
+            
+            // Update tunnel pairs
+            if (gridData[key].type === 'tunnel' && gridData[key].pair) {
+              newGridData[newKey].pair = {
+                r: gridData[key].pair.r + offsetR,
+                c: gridData[key].pair.c + offsetC
+              };
+            }
+          });
+          gridData = newGridData;
+        }
+        
+        canvas.innerHTML = '';
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        
+        // Create SVG overlay
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.id = 'grid-svg-overlay';
+        svg.setAttribute('width', width);
+        svg.setAttribute('height', height);
+        
+        for (let r = 0; r < rows; r++) {
+          const row = document.createElement('div');
+          row.className = 'grid-row';
+          for (let c = 0; c < cols; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.addEventListener('click', handleCellClick);
+            cell.addEventListener('contextmenu', handleCellRightClick);
+            cell.addEventListener('mousedown', handleCellMouseDown);
+            cell.addEventListener('mouseenter', handleCellMouseEnter);
+            cell.addEventListener('mouseup', handleCellMouseUp);
+            row.appendChild(cell);
+          }
+          canvas.appendChild(row);
+        }
+        
+        canvas.appendChild(svg);
+        
+        if (preserveData) {
+          updateGrid();
+        }
+      }
+
+      function getCellKey(r, c) {
+        return `${r}_${c}`;
+      }
+
+      function getCell(r, c) {
+        return document.querySelector(`.grid-cell[data-row="${r}"][data-col="${c}"]`);
+      }
+
+      function handleCellMouseDown(e) {
+        if (e.button !== 0) return; // Only left click
+        
+        const r = parseInt(e.target.dataset.row);
+        const c = parseInt(e.target.dataset.col);
+        const key = getCellKey(r, c);
+
+        if (currentTool === 'snake') {
+          // Start dragging snake
+          isDragging = true;
+          lastDragCell = key;
+          currentSnakePath = [[r, c]];
+          gridData[key] = { type: 'temp-snake' };
+          updateGrid();
+          e.preventDefault(); // Prevent text selection
+        }
+      }
+
+      function handleCellMouseEnter(e) {
+        if (!isDragging || currentTool !== 'snake') return;
+        
+        const r = parseInt(e.target.dataset.row);
+        const c = parseInt(e.target.dataset.col);
+        const key = getCellKey(r, c);
+
+        // Avoid duplicate cells
+        if (key === lastDragCell) return;
+        
+        // Check if cell is already occupied by non-snake
+        if (gridData[key] && gridData[key].type !== 'temp-snake') {
+          return;
+        }
+
+        // Add to path
+        currentSnakePath.push([r, c]);
+        lastDragCell = key;
+        gridData[key] = { type: 'temp-snake' };
+        updateGrid();
+      }
+
+      function handleCellMouseUp(e) {
+        if (e.button !== 0) return; // Only left click
+        
+        if (isDragging && currentTool === 'snake') {
+          finishCurrentSnake();
+          isDragging = false;
+          lastDragCell = null;
+        }
+      }
+
+      // Global mouseup to handle release outside grid
+      document.addEventListener('mouseup', function(e) {
+        if (isDragging && currentTool === 'snake') {
+          finishCurrentSnake();
+          isDragging = false;
+          lastDragCell = null;
+        }
+      });
+
+      function handleCellClick(e) {
+        // For non-snake tools, use click
+        const r = parseInt(e.target.dataset.row);
+        const c = parseInt(e.target.dataset.col);
+        const key = getCellKey(r, c);
+
+        if (currentTool === 'wall') {
+          if (gridData[key]) delete gridData[key];
+          const counterValue = parseInt(document.getElementById('wall-counter-input').value) || 3;
+          gridData[key] = { type: 'wall', counter: counterValue };
+          updateGrid();
+        } else if (currentTool === 'hole') {
+          if (gridData[key]) delete gridData[key];
+          gridData[key] = { type: 'hole' };
+          updateGrid();
+        } else if (currentTool === 'tunnel') {
+          handleTunnelClick(r, c, key);
+        } else if (currentTool === 'delete') {
+          handleCellDelete(r, c, key);
+        }
+      }
+
+      function handleCellRightClick(e) {
+        e.preventDefault(); // Prevent context menu
+        const r = parseInt(e.target.dataset.row);
+        const c = parseInt(e.target.dataset.col);
+        const key = getCellKey(r, c);
+        handleCellDelete(r, c, key);
+      }
+
+      function handleCellDelete(r, c, key) {
+        delete gridData[key];
+        // Also remove from snakes if part of snake
+        snakes = snakes.filter(snake => {
+          return !snake.path.some(pos => pos[0] === r && pos[1] === c);
+        });
+        updateGrid();
+      }
+
+      function finishCurrentSnake() {
+        if (currentSnakePath.length >= 2) {
+          // Reverse so last added is head
+          const reversedPath = [...currentSnakePath].reverse();
+          snakes.push({ path: reversedPath });
+          
+          // Convert temp-snake to permanent
+          currentSnakePath.forEach(([r, c]) => {
+            const key = getCellKey(r, c);
+            delete gridData[key];
+          });
+          
+          currentSnakePath = [];
+          isDragging = false;
+          lastDragCell = null;
+          updateGrid();
+        } else if (currentSnakePath.length === 1) {
+          // Remove single cell
+          const [r, c] = currentSnakePath[0];
+          delete gridData[getCellKey(r, c)];
+          currentSnakePath = [];
+          isDragging = false;
+          lastDragCell = null;
+          updateGrid();
+        }
+      }
+
+      function handleTunnelClick(r, c, key) {
+        if (gridData[key]) return; // Cell occupied
+        
+        if (!tunnelFirst) {
+          tunnelFirst = { r, c, key };
+          gridData[key] = { type: 'tunnel', pair: null };
+          updateGrid();
+        } else {
+          // Create pair
+          const key1 = tunnelFirst.key;
+          const key2 = key;
+          gridData[key1] = { type: 'tunnel', pair: { r, c } };
+          gridData[key2] = { type: 'tunnel', pair: { r: tunnelFirst.r, c: tunnelFirst.c } };
+          tunnelFirst = null;
+          updateGrid();
+        }
+      }
+
+      function updateGrid() {
+        // Clear all cells
+        document.querySelectorAll('.grid-cell').forEach(cell => {
+          cell.className = 'grid-cell';
+          cell.textContent = '';
+          cell.style.color = '';
+          cell.style.fontWeight = '';
+          cell.style.fontSize = '';
+          cell.style.display = '';
+          cell.style.alignItems = '';
+          cell.style.justifyContent = '';
+        });
+
+        // Draw completed snakes
+        snakes.forEach(snake => {
+          snake.path.forEach(([r, c], idx) => {
+            const cell = getCell(r, c);
+            if (cell) {
+              if (idx === 0) {
+                cell.classList.add('snake-head'); // First in path is head
+              } else {
+                cell.classList.add('snake');
+              }
+            }
+          });
+        });
+
+        // Draw obstacles and temp snake
+        Object.keys(gridData).forEach(key => {
+          const [r, c] = key.split('_').map(Number);
+          const cell = getCell(r, c);
+          if (cell && gridData[key]) {
+            cell.classList.add(gridData[key].type);
+            
+            // Display counter for walls
+            if (gridData[key].type === 'wall' && gridData[key].counter > 0) {
+              cell.textContent = gridData[key].counter;
+              cell.style.color = 'white';
+              cell.style.fontWeight = 'bold';
+              cell.style.fontSize = '14px';
+              cell.style.display = 'flex';
+              cell.style.alignItems = 'center';
+              cell.style.justifyContent = 'center';
+            }
+          }
+        });
+
+        // Draw arrows for snakes
+        drawArrows();
+      }
+
+      function drawArrows() {
+        const svg = document.getElementById('grid-svg-overlay');
+        if (!svg) return;
+        
+        // Clear existing arrows
+        svg.innerHTML = '';
+        
+        // Helper function to draw arrow
+        function drawArrow(pathCoords, color, opacity) {
+          if (pathCoords.length < 2) return;
+          
+          // Draw line through all points
+          const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+          const points = pathCoords.map(p => `${p.x},${p.y}`).join(' ');
+          polyline.setAttribute('points', points);
+          polyline.setAttribute('stroke', color);
+          polyline.setAttribute('stroke-width', '2');
+          polyline.setAttribute('stroke-opacity', opacity);
+          polyline.setAttribute('fill', 'none');
+          svg.appendChild(polyline);
+          
+          // Draw arrow head at the first point (head)
+          const head = pathCoords[0];
+          const neck = pathCoords[1];
+          const dx = head.x - neck.x;
+          const dy = head.y - neck.y;
+          const angle = Math.atan2(dy, dx);
+          const arrowSize = 6;
+          
+          const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+          const point1 = {
+            x: head.x,
+            y: head.y
+          };
+          const point2 = {
+            x: head.x - arrowSize * Math.cos(angle - Math.PI / 6),
+            y: head.y - arrowSize * Math.sin(angle - Math.PI / 6)
+          };
+          const point3 = {
+            x: head.x - arrowSize * Math.cos(angle + Math.PI / 6),
+            y: head.y - arrowSize * Math.sin(angle + Math.PI / 6)
+          };
+          
+          arrow.setAttribute('points', 
+            `${point1.x},${point1.y} ${point2.x},${point2.y} ${point3.x},${point3.y}`);
+          arrow.setAttribute('fill', color);
+          arrow.setAttribute('fill-opacity', opacity);
+          svg.appendChild(arrow);
+        }
+        
+        // Draw completed snakes (black, solid)
+        snakes.forEach(snake => {
+          const pathCoords = snake.path.map(([r, c]) => ({
+            x: c * 20 + 10,
+            y: r * 20 + 10
+          }));
+          drawArrow(pathCoords, '#000', '1.0');
+        });
+        
+        // Draw preview snake while dragging (gray, semi-transparent)
+        if (isDragging && currentSnakePath.length >= 2) {
+          const pathCoords = currentSnakePath.map(([r, c]) => ({
+            x: c * 20 + 10,
+            y: r * 20 + 10
+          }));
+          // Reverse for preview (last added is head)
+          pathCoords.reverse();
+          drawArrow(pathCoords, '#999', '0.6');
+        }
+      }
+
+      function clearGrid() {
+        gridData = {};
+        currentSnakePath = [];
+        snakes = [];
+        tunnelFirst = null;
+        isDragging = false;
+        lastDragCell = null;
+        updateGrid();
+      }
+
+      function exportCustomLevel() {
+        const levelData = [];
+        
+        // Always use current grid size for center calculation
+        const centerC = Math.floor(gridCols / 2);
+        const centerR = Math.floor(gridRows / 2);
+        
+        // Helper function to convert grid position to center-origin
+        function gridToPos(r, c) {
+          return {
+            x: c - centerC,
+            y: centerR - r
+          };
+        }
+        
+        // Export snakes
+        snakes.forEach(snake => {
+          const positions = snake.path.map(([r, c]) => gridToPos(r, c));
+          levelData.push({
+            position: positions,
+            itemType: 'snake',
+            counter: 0
+          });
+        });
+
+        // Export walls, holes, tunnels
+        const processedTunnels = new Set();
+        Object.keys(gridData).forEach(key => {
+          const [r, c] = key.split('_').map(Number);
+          const item = gridData[key];
+          
+          if (item.type === 'wall') {
+            levelData.push({
+              position: [gridToPos(r, c)],
+              itemType: 'wall',
+              counter: item.counter || 0
+            });
+          } else if (item.type === 'hole') {
+            levelData.push({
+              position: [gridToPos(r, c)],
+              itemType: 'hole',
+              counter: 0
+            });
+          } else if (item.type === 'tunnel' && item.pair && !processedTunnels.has(key)) {
+            const pair = item.pair;
+            const pairKey = getCellKey(pair.r, pair.c);
+            processedTunnels.add(key);
+            processedTunnels.add(pairKey);
+            
+            levelData.push({
+              position: [
+                gridToPos(r, c),
+                gridToPos(pair.r, pair.c)
+              ],
+              itemType: 'tunnel',
+              counter: 0
+            });
+          }
+        });
+
+        return levelData;
+      }
+
+      // Tool selection
+      function selectTool(toolElement) {
+        // Finish current snake if switching tool
+        if (currentTool === 'snake') {
+          if (currentSnakePath.length > 0) {
+            finishCurrentSnake();
+          }
+          isDragging = false;
+          lastDragCell = null;
+        }
+        
+        document.querySelectorAll('.tool-option').forEach(t => t.classList.remove('active'));
+        toolElement.classList.add('active');
+        currentTool = toolElement.getAttribute('data-tool');
+        
+        // Reset tunnel state
+        tunnelFirst = null;
+      }
+
+      document.querySelectorAll('.tool-option').forEach(tool => {
+        tool.addEventListener('click', function() {
+          selectTool(this);
+        });
+      });
+
+      // Keyboard shortcuts for tools (S, W, H, T)
+      document.addEventListener('keydown', function(e) {
+        // Only activate if Custom tab is active and not typing in input
+        const customTabActive = document.getElementById('custom-tab').classList.contains('active');
+        if (!customTabActive || e.target.tagName === 'INPUT') {
+          return;
+        }
+
+        const key = e.key.toLowerCase();
+        const toolElement = document.querySelector(`.tool-option[data-key="${key}"]`);
+        
+        if (toolElement) {
+          e.preventDefault();
+          selectTool(toolElement);
+        }
+      });
+
+      // Grid controls
+      document.getElementById('create-grid-btn').addEventListener('click', function() {
+        const rows = parseInt(document.getElementById('grid-rows').value);
+        const cols = parseInt(document.getElementById('grid-cols').value);
+        
+        // Check if we have existing data
+        const hasData = snakes.length > 0 || Object.keys(gridData).length > 0;
+        
+        if (hasData) {
+          createGrid(rows, cols, true); // Preserve data and center it
+        } else {
+          createGrid(rows, cols, false); // Fresh grid
+        }
+      });
+
+      document.getElementById('load-generated-btn').addEventListener('click', function() {
+        if (!currentLevelJson || currentLevelJson.length === 0) {
+          alert('No generated level found. Please generate a level first in the Generate Level tab.');
+          return;
+        }
+        if (confirm('Load generated level? This will replace current content.')) {
+          loadLevelIntoCustom(currentLevelJson);
+        }
+      });
+
+      document.getElementById('clear-grid-btn').addEventListener('click', function() {
+        if (confirm('Clear all? This cannot be undone.')) {
+          clearGrid();
+        }
+      });
+
+      // ========== CSV DOWNLOAD (Generate Level Tab) ==========
+      document.getElementById('download-csv-btn').addEventListener('click', function() {
+        if (!currentLevelJson || currentLevelJson.length === 0) {
+          alert('Chưa có dữ liệu. Vui lòng tạo level trước.');
+          return;
+        }
+        const csv = convertLevelJsonToCSV(currentLevelJson);
+        const timestamp = new Date().toISOString().slice(0,19).replace(/[:-]/g,'');
+        downloadCSV(csv, `level_${timestamp}.csv`);
+      });
+
+      // ========== CSV DOWNLOAD (Custom Level Tab) ==========
+      document.getElementById('download-custom-csv-btn').addEventListener('click', function() {
+        const levelData = exportCustomLevel();
+        if (!levelData || levelData.length === 0) {
+          alert('Chưa có dữ liệu. Vui lòng vẽ level trước.');
+          return;
+        }
+        const csv = convertLevelJsonToCSV(levelData);
+        const timestamp = new Date().toISOString().slice(0,19).replace(/[:-]/g,'');
+        downloadCSV(csv, `custom_level_${timestamp}.csv`);
+      });
+
+      function loadLevelIntoCustom(levelJson) {
+        // Calculate required grid size from coordinates
+        let minX = 0, maxX = 0, minY = 0, maxY = 0;
+        
+        levelJson.forEach(item => {
+          item.position.forEach(pos => {
+            minX = Math.min(minX, pos.x);
+            maxX = Math.max(maxX, pos.x);
+            minY = Math.min(minY, pos.y);
+            maxY = Math.max(maxY, pos.y);
+          });
+        });
+        
+        // Add padding
+        const padding = 3;
+        const neededCols = maxX - minX + 1 + (padding * 2);
+        const neededRows = maxY - minY + 1 + (padding * 2);
+        
+        // Create grid with appropriate size
+        const rows = Math.max(20, Math.min(50, neededRows));
+        const cols = Math.max(20, Math.min(50, neededCols));
+        
+        document.getElementById('grid-rows').value = rows;
+        document.getElementById('grid-cols').value = cols;
+        
+        // Clear and create new grid
+        clearGrid();
+        createGrid(rows, cols, false);
+        
+        // Convert center-origin to grid indices
+        const centerR = Math.floor(rows / 2);
+        const centerC = Math.floor(cols / 2);
+        
+        function posToGrid(pos) {
+          // pos.x = col - centerC  =>  col = pos.x + centerC
+          // pos.y = centerR - row  =>  row = centerR - pos.y
+          const r = centerR - pos.y;
+          const c = pos.x + centerC;
+          return [r, c];
+        }
+        
+        // Helper to check if position is valid
+        function isValidPos(r, c) {
+          return r >= 0 && r < rows && c >= 0 && c < cols;
+        }
+        
+        // Load items into grid
+        levelJson.forEach(item => {
+          if (item.itemType === 'snake') {
+            // Add snake
+            const path = item.position.map(pos => posToGrid(pos)).filter(([r, c]) => isValidPos(r, c));
+            if (path.length >= 2) {
+              snakes.push({ path });
+            }
+          } else if (item.itemType === 'wall') {
+            const [r, c] = posToGrid(item.position[0]);
+            if (isValidPos(r, c)) {
+              const key = getCellKey(r, c);
+              gridData[key] = { type: 'wall', counter: item.counter || 0 };
+            }
+          } else if (item.itemType === 'hole') {
+            const [r, c] = posToGrid(item.position[0]);
+            if (isValidPos(r, c)) {
+              const key = getCellKey(r, c);
+              gridData[key] = { type: 'hole' };
+            }
+          } else if (item.itemType === 'tunnel') {
+            const [r1, c1] = posToGrid(item.position[0]);
+            const [r2, c2] = posToGrid(item.position[1]);
+            if (isValidPos(r1, c1) && isValidPos(r2, c2)) {
+              const key1 = getCellKey(r1, c1);
+              const key2 = getCellKey(r2, c2);
+              gridData[key1] = { type: 'tunnel', pair: { r: r2, c: c2 } };
+              gridData[key2] = { type: 'tunnel', pair: { r: r1, c: c1 } };
+            }
+          }
+        });
+        
+        // Render the grid
+        updateGrid();
+      }
+
+      // Initialize grid on load
+      createGrid(20, 20);
+
+      // ========== GENERATE TAB (ORIGINAL) ==========
+      
+      // Wall Counter Management
+      let wallCounterIndex = 0;
+      
+      function addWallCounter() {
+        const container = document.getElementById('wall-counters-container');
+        const index = wallCounterIndex++;
+        
+        const wallItem = document.createElement('div');
+        wallItem.className = 'wall-counter-item';
+        wallItem.dataset.index = index;
+        wallItem.innerHTML = `
+          <label>Wall ${index + 1}:</label>
+          <input type="number" class="wall-counter-value" min="0" max="99" value="3" />
+          <button type="button" class="remove-wall-btn">🗑️</button>
+        `;
+        
+        // Add remove handler
+        wallItem.querySelector('.remove-wall-btn').addEventListener('click', function() {
+          wallItem.remove();
+        });
+        
+        container.appendChild(wallItem);
+      }
+      
+      function clearAllWalls() {
+        const container = document.getElementById('wall-counters-container');
+        container.innerHTML = '';
+        wallCounterIndex = 0;
+      }
+      
+      document.getElementById('add-wall-btn').addEventListener('click', addWallCounter);
+      document.getElementById('clear-walls-btn').addEventListener('click', function() {
+        if (confirm('Remove all walls?')) {
+          clearAllWalls();
+        }
+      });
+
+      document
+        .getElementById("generate-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const form = e.target;
+          const formData = new FormData(form);
+          
+          // Get wall counters
+          const wallCounters = Array.from(document.querySelectorAll('.wall-counter-value'))
+            .map(input => parseInt(input.value) || 0);
+          
+          // Add wall counters to formData
+          formData.set('wall_counters', JSON.stringify(wallCounters));
+          const requiredCount = formData.get("arrow_count");
+
+          const imageElement = document.getElementById("level-image");
+          const displayElement = document.getElementById("arrow-count-display");
+          const resultArea = document.getElementById("result-area");
+          const csvSection = document.getElementById("csv-section");
+
+          resultArea.querySelector("h2").textContent = "Đang tạo level...";
+          imageElement.style.display = "none";
+          displayElement.style.display = "none";
+          csvSection.style.display = "none";
+          document.querySelector(".results-wrapper").style.display = "none";
+
+          fetch("/generate", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => {
+              if (!response.ok) {
+                return response.json().then((err) => {
+                  throw new Error(err.error || "Lỗi không xác định.");
+                });
+              }
+              return response.json();
+            })
+            .then((data) => {
+              const base64Image = data.base64_image;
+              const actualCount = data.actual_arrow_count;
+              const levelJson = data.level_json;
+
+              const imageUrl = "data:image/png;base64," + base64Image;
+              imageElement.src = imageUrl;
+              imageElement.style.display = "block";
+
+              resultArea.querySelector("h2").textContent =
+                "Level Đã Tạo Thành Công";
+              displayElement.textContent = `✅ Đã tạo: ${actualCount} / ${requiredCount} Mũi tên.`;
+              displayElement.style.display = "block";
+
+              if (actualCount < requiredCount) {
+                displayElement.style.color = "orange";
+                displayElement.textContent += " (Lưới quá chật/Phức tạp)";
+              } else {
+                displayElement.style.color = "#007bff";
+              }
+
+              // Lưu level JSON data để export CSV
+              if (levelJson) {
+                currentLevelJson = levelJson;
+                csvSection.style.display = "block";
+              }
+
+              // Hiển thị results wrapper nếu cả 2 sections đều có nội dung
+              document.querySelector(".results-wrapper").style.display = "flex";
+            })
+            .catch((error) => {
+              resultArea.querySelector("h2").textContent = "Lỗi!";
+              imageElement.style.display = "none";
+              displayElement.style.display = "none";
+              csvSection.style.display = "none";
+              document.querySelector(".results-wrapper").style.display = "none";
+              alert("Lỗi khi tạo level: " + error.message);
+              console.error("Fetch Error:", error);
+            });
+        });
+
+      // Xử lý toggle giữa JSON formatted và String minified
+      document
+        .getElementById("toggle-string-btn")
+        .addEventListener("click", function () {
+          if (!currentLevelJson) {
+            alert("Không có dữ liệu JSON để chuyển đổi.");
+            return;
+          }
+
+          const jsonOutput = document.getElementById("json-output");
+          const toggleBtn = document.getElementById("toggle-string-btn");
+
+          if (isStringMode) {
+            // Chuyển về JSON formatted (có xuống dòng và indent)
+            jsonOutput.textContent = JSON.stringify(currentLevelJson, null, 2);
+            toggleBtn.textContent = "🔄 Convert to String";
+            isStringMode = false;
+          } else {
+            // Chuyển sang String minified (không xuống dòng, không dấu cách)
+            jsonOutput.textContent = JSON.stringify(currentLevelJson);
+            toggleBtn.textContent = "🔄 Convert to JSON";
+            isStringMode = true;
+          }
+        });
+
+      // Xử lý copy to clipboard
+      document
+        .getElementById("copy-json-btn")
+        .addEventListener("click", function () {
+          if (!currentLevelJson) {
+            alert("Không có dữ liệu JSON để copy.");
+            return;
+          }
+
+          const jsonOutput = document.getElementById("json-output");
+          const copyBtn = document.getElementById("copy-json-btn");
+          const textToCopy = jsonOutput.textContent;
+
+          // Sử dụng Clipboard API
+          navigator.clipboard
+            .writeText(textToCopy)
+            .then(() => {
+              // Thông báo thành công
+              const originalText = copyBtn.textContent;
+              copyBtn.textContent = "✅ Copied!";
+              copyBtn.classList.add("copied");
+
+              // Reset sau 2 giây
+              setTimeout(() => {
+                copyBtn.textContent = originalText;
+                copyBtn.classList.remove("copied");
+              }, 2000);
+            })
+            .catch((err) => {
+              alert("Lỗi khi copy: " + err);
+              console.error("Copy Error:", err);
+            });
+        });
+    </script>
+  </body>
+</html>
