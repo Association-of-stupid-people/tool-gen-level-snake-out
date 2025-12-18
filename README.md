@@ -15,14 +15,14 @@ Web tool để tự động generate level cho game Snake. Được thiết kế
   - 🧱 Wall (với counter)
   - 🕳️ Hole (lỗ thoát)
   - 🌀 Tunnel (cổng dịch chuyển)
-- **Export CSV**: Tải về file CSV với format chuẩn
+- **Export JSON**: Tải về file JSON với format chuẩn (Level{X}Data.json)
 
 ### ✏️ Custom Level (Vẽ tay)
 - **Vẽ snake**: Kéo chuột để vẽ đường đi của snake
 - **Thêm obstacles**: Wall, Hole, Tunnel
 - **Keyboard shortcuts**: S (Snake), W (Wall), H (Hole), T (Tunnel)
 - **Load generated level**: Import level từ tab Generate để chỉnh sửa
-- **Export CSV**: Tải về level đã vẽ
+- **Export JSON**: Tải về level đã vẽ (Level{X}Data.json)
 
 ## 🚀 Deploy lên Vercel
 
@@ -95,28 +95,58 @@ python app.py
 
 Mở browser tại: `http://localhost:5000`
 
-## 📋 CSV Format
+## 📋 JSON Export Format
 
-File CSV export có 7 cột:
+File JSON export có cấu trúc array of objects với các trường:
 
-| Column | Description |
-|--------|-------------|
-| Level | Level number (để trống) |
-| LevelType | Loại level (để trống) |
-| LevelTimer | Thời gian limit (để trống) |
-| ItemType | `snake`, `wall`, `hole`, `tunnel` |
-| Position | JSON array của coordinates `[{"x": 0, "y": 0}, ...]` |
-| ItemValueConfig | Counter value (cho wall) |
-| DifficultyScore | Điểm độ khó (để trống) |
+| Field | Type | Description |
+|-------|------|-------------|
+| position | Array | Mảng các coordinates `[{"x": 0, "y": 0}, ...]` |
+| itemType | String | `snake`, `wall`, `hole`, `tunnel` |
+| itemValueConfig | Number | Counter value (cho wall) hoặc 0 |
 
-### Ví dụ:
+### Tên file:
 
-```csv
-Level,LevelType,LevelTimer,ItemType,Position,ItemValueConfig,DifficultyScore
-,,,snake,"[{""x"":0,""y"":5},{""x"":0,""y"":4}]",0,
-,,,wall,"[{""x"":2,""y"":3}]",3,
-,,,hole,"[{""x"":-1,""y"":2}]",0,
-,,,tunnel,"[{""x"":3,""y"":1},{""x"":-3,""y"":-1}]",0,
+- **Generate Tab**: `Level{X}Data.json` (X là giá trị Level field)
+- **Custom Tab**: `Level{X}Data.json` (X là giá trị Level field)
+
+Ví dụ: Level = 1 → tải về `Level1Data.json`
+
+### Ví dụ nội dung JSON:
+
+```json
+[
+  {
+    "position": [
+      {"x": 0, "y": 5},
+      {"x": 0, "y": 4}
+    ],
+    "itemType": "snake",
+    "itemValueConfig": 0
+  },
+  {
+    "position": [
+      {"x": 2, "y": 3}
+    ],
+    "itemType": "wall",
+    "itemValueConfig": 3
+  },
+  {
+    "position": [
+      {"x": -1, "y": 2}
+    ],
+    "itemType": "hole",
+    "itemValueConfig": 0
+  },
+  {
+    "position": [
+      {"x": 3, "y": 1},
+      {"x": -3, "y": -1}
+    ],
+    "itemType": "tunnel",
+    "itemValueConfig": 0
+  }
+]
 ```
 
 ## 🎮 Coordinate System

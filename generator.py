@@ -114,7 +114,7 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
     """
     Tạo JSON data cho level với format:
     [
-        {"position": [...], "itemType": "snake/wall/hole/tunnel", "counter": 0}
+        {"position": [...], "itemType": "snake/wall/hole/tunnel", "itemValueConfig": 0}
     ]
     """
     level_data = []
@@ -129,7 +129,7 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
         level_data.append({
             "position": position_objects,
             "itemType": "snake",
-            "counter": 0
+            "itemValueConfig": 0
         })
     
     # 2. Phân loại obstacles
@@ -148,7 +148,7 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
                 level_data.append({
                     "position": position_objects,
                     "itemType": "tunnel",
-                    "counter": 0
+                    "itemValueConfig": 0
                 })
                 processed_tunnels.add((r, c))
                 processed_tunnels.add(partner)
@@ -157,7 +157,7 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
             level_data.append({
                 "position": position_objects,
                 "itemType": "hole",
-                "counter": 0
+                "itemValueConfig": 0
             })
         elif color == (128, 0, 128):  # Wall (màu tím)
             position_objects = [create_position_object(r, c, ROWS, COLS)]
@@ -165,7 +165,7 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
             level_data.append({
                 "position": position_objects,
                 "itemType": "wall",
-                "counter": counter_value
+                "itemValueConfig": counter_value
             })
     
     return level_data

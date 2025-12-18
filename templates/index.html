@@ -59,6 +59,56 @@
         gap: 20px;
         align-items: flex-start;
       }
+      .generate-level-container {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+      }
+      .result-area-left {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .result-area-left #result-area {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        text-align: center;
+        min-height: 200px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .result-area-left #json-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+      }
+      .result-area-left #json-section h3 {
+        margin-top: 0;
+        margin-bottom: 15px;
+        color: #333;
+      }
+      .form-panel-right {
+        min-width: 400px;
+        max-width: 500px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        position: sticky;
+        top: 20px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+      }
+      .form-panel-right h3 {
+        color: #333;
+      }
       .grid-canvas {
         border: 2px solid #333;
         background: white;
@@ -256,10 +306,10 @@
         color: red;
         margin-top: 10px;
       }
-      #csv-section {
+      #json-section {
         display: none;
       }
-      #csv-section h2 {
+      #json-section h3 {
         margin-top: 0;
       }
       @media (max-width: 1024px) {
@@ -267,7 +317,22 @@
           flex-direction: column;
         }
         .container {
-          max-width: 600px;
+          max-width: 100%;
+        }
+        .generate-level-container {
+          flex-direction: column;
+        }
+        .form-panel-right {
+          max-width: 100%;
+          min-width: 0;
+          position: static;
+          max-height: none;
+        }
+        .custom-level-container {
+          flex-direction: column;
+        }
+        .toolbox {
+          min-width: 0;
         }
       }
       .divider {
@@ -298,8 +363,45 @@
       </div>
 
       <div id="generate-tab" class="tab-content active">
-        <div class="form-container">
+        <div class="generate-level-container">
+          <!-- Left Panel: Generated Image Display -->
+          <div class="result-area-left">
+            <div id="result-area">
+              <h2>Level Mới</h2>
+              <p id="arrow-count-display" style="display: none"></p>
+              <img
+                id="level-image"
+                src=""
+                alt="Hình ảnh Level Mũi Tên sẽ hiển thị ở đây"
+                style="display: none"
+              />
+            </div>
+
+            <div id="json-section" style="display: none">
+              <h3>Xuất Dữ Liệu Level</h3>
+              <button id="download-json-btn" type="button" style="background-color: #28a745; width: 100%;">
+                📥 Tải về Level...Data.JSON
+              </button>
+              <p style="font-size: 12px; color: #666; margin-top: 8px;">
+                JSON format với itemValueConfig cho các items
+              </p>
+            </div>
+          </div>
+
+          <!-- Right Panel: Form Controls -->
+          <div class="form-panel-right">
+            <h3 style="margin-top: 0; margin-bottom: 20px;">⚙️ Cấu hình Level</h3>
           <form id="generate-form" enctype="multipart/form-data">
+        <label for="level_number">Level:</label>
+        <input
+          type="number"
+          id="level_number"
+          name="level_number"
+          value="1"
+          min="1"
+          required
+        />
+
         <label for="arrow_count">Số lượng Arrow Yêu cầu:</label>
         <input
           type="number"
@@ -429,29 +531,7 @@
 
         <button type="submit">Tạo Level</button>
           </form>
-        </div>
-
-        <div class="results-wrapper">
-        <div id="result-area">
-        <h2>Level Mới</h2>
-        <p id="arrow-count-display" style="display: none"></p>
-        <img
-          id="level-image"
-          src=""
-          alt="Hình ảnh Level Mũi Tên sẽ hiển thị ở đây"
-          style="display: none"
-        />
-      </div>
-
-      <div id="csv-section">
-        <h2>Xuất Dữ Liệu Level</h2>
-        <button id="download-csv-btn" type="button" style="background-color: #28a745;">
-          📥 Tải về CSV
-        </button>
-        <p style="font-size: 12px; color: #666; margin-top: 8px;">
-          Format: 7 cột (Level, LevelType, LevelTimer, ItemType, Position, ItemValueConfig, DifficultyScore)
-        </p>
-        </div>
+          </div>
         </div>
       </div>
 
@@ -473,6 +553,12 @@
           </div>
 
           <div class="toolbox">
+            <div style="margin-bottom: 20px;">
+              <label for="custom_level_number" style="display: block; margin-bottom: 5px; font-weight: bold;">Level:</label>
+              <input type="number" id="custom_level_number" value="1" min="1" 
+                     style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; text-align: center; font-weight: bold;">
+            </div>
+            
             <h3>🛠️ Tools</h3>
             <div class="tool-option active" data-tool="snake" data-key="s">
               🐍 New Snake <span style="float: right; font-size: 11px; color: #999;">[S]</span>
@@ -501,13 +587,13 @@
               <button type="button" id="clear-grid-btn">
                 🔄 Clear All
               </button>
-              <button type="button" id="download-custom-csv-btn" style="background-color: #28a745">
-                📥 Tải về CSV
+              <button type="button" id="download-custom-json-btn" style="background-color: #28a745">
+                📥 Tải về Level...Data.JSON
               </button>
             </div>
 
             <p style="font-size: 11px; color: #666; margin-top: 10px;">
-              Format: 7 cột (Level, LevelType, LevelTimer, ItemType, Position, ItemValueConfig, DifficultyScore)
+              JSON format với itemValueConfig cho các items
             </p>
           </div>
         </div>
@@ -515,32 +601,12 @@
     </div>
 
     <script>
-      let currentLevelJson = null; // Lưu JSON data để export CSV
+      let currentLevelJson = null; // Lưu JSON data để export
 
-      // ========== CSV EXPORT FUNCTIONS ==========
-      function convertLevelJsonToCSV(levelJson) {
-        const headers = ['Level','LevelType','LevelTimer','ItemType','Position','ItemValueConfig','DifficultyScore'];
-        let csv = headers.join(',') + '\n';
-        
-        levelJson.forEach(item => {
-          const position = JSON.stringify(item.position).replace(/"/g, '""'); // Escape quotes
-          const row = [
-            '',  // Level
-            '',  // LevelType
-            '',  // LevelTimer
-            item.itemType,
-            `"${position}"`,  // Position as quoted JSON string
-            item.counter || 0,  // ItemValueConfig
-            ''  // DifficultyScore
-          ];
-          csv += row.join(',') + '\n';
-        });
-        
-        return csv;
-      }
-
-      function downloadCSV(csvContent, filename) {
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      // ========== JSON EXPORT FUNCTIONS ==========
+      function downloadJSON(jsonData, filename) {
+        const jsonString = JSON.stringify(jsonData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
@@ -995,7 +1061,7 @@
           levelData.push({
             position: positions,
             itemType: 'snake',
-            counter: 0
+            itemValueConfig: 0
           });
         });
 
@@ -1009,13 +1075,13 @@
             levelData.push({
               position: [gridToPos(r, c)],
               itemType: 'wall',
-              counter: item.counter || 0
+              itemValueConfig: item.counter || 0
             });
           } else if (item.type === 'hole') {
             levelData.push({
               position: [gridToPos(r, c)],
               itemType: 'hole',
-              counter: 0
+              itemValueConfig: 0
             });
           } else if (item.type === 'tunnel' && item.pair && !processedTunnels.has(key)) {
             const pair = item.pair;
@@ -1029,7 +1095,7 @@
                 gridToPos(pair.r, pair.c)
               ],
               itemType: 'tunnel',
-              counter: 0
+              itemValueConfig: 0
             });
           }
         });
@@ -1110,27 +1176,48 @@
         }
       });
 
-      // ========== CSV DOWNLOAD (Generate Level Tab) ==========
-      document.getElementById('download-csv-btn').addEventListener('click', function() {
+      // ========== DYNAMIC BUTTON TEXT UPDATE ==========
+      function updateGenerateButtonText() {
+        const levelNumber = document.getElementById('level_number').value || '1';
+        const btn = document.getElementById('download-json-btn');
+        btn.textContent = `📥 Tải về Level${levelNumber}Data.JSON`;
+      }
+      
+      function updateCustomButtonText() {
+        const levelNumber = document.getElementById('custom_level_number').value || '1';
+        const btn = document.getElementById('download-custom-json-btn');
+        btn.textContent = `📥 Tải về Level${levelNumber}Data.JSON`;
+      }
+      
+      // Listen to level input changes
+      document.getElementById('level_number').addEventListener('input', updateGenerateButtonText);
+      document.getElementById('custom_level_number').addEventListener('input', updateCustomButtonText);
+      
+      // Initialize button text on page load
+      updateGenerateButtonText();
+      updateCustomButtonText();
+
+      // ========== JSON DOWNLOAD (Generate Level Tab) ==========
+      document.getElementById('download-json-btn').addEventListener('click', function() {
         if (!currentLevelJson || currentLevelJson.length === 0) {
           alert('Chưa có dữ liệu. Vui lòng tạo level trước.');
           return;
         }
-        const csv = convertLevelJsonToCSV(currentLevelJson);
-        const timestamp = new Date().toISOString().slice(0,19).replace(/[:-]/g,'');
-        downloadCSV(csv, `level_${timestamp}.csv`);
+        const levelNumber = document.getElementById('level_number').value || '1';
+        const filename = `Level${levelNumber}Data.json`;
+        downloadJSON(currentLevelJson, filename);
       });
 
-      // ========== CSV DOWNLOAD (Custom Level Tab) ==========
-      document.getElementById('download-custom-csv-btn').addEventListener('click', function() {
+      // ========== JSON DOWNLOAD (Custom Level Tab) ==========
+      document.getElementById('download-custom-json-btn').addEventListener('click', function() {
         const levelData = exportCustomLevel();
         if (!levelData || levelData.length === 0) {
           alert('Chưa có dữ liệu. Vui lòng vẽ level trước.');
           return;
         }
-        const csv = convertLevelJsonToCSV(levelData);
-        const timestamp = new Date().toISOString().slice(0,19).replace(/[:-]/g,'');
-        downloadCSV(csv, `custom_level_${timestamp}.csv`);
+        const levelNumber = document.getElementById('custom_level_number').value || '1';
+        const filename = `Level${levelNumber}Data.json`;
+        downloadJSON(levelData, filename);
       });
 
       function loadLevelIntoCustom(levelJson) {
@@ -1276,13 +1363,12 @@
           const imageElement = document.getElementById("level-image");
           const displayElement = document.getElementById("arrow-count-display");
           const resultArea = document.getElementById("result-area");
-          const csvSection = document.getElementById("csv-section");
+          const jsonSection = document.getElementById("json-section");
 
           resultArea.querySelector("h2").textContent = "Đang tạo level...";
           imageElement.style.display = "none";
           displayElement.style.display = "none";
-          csvSection.style.display = "none";
-          document.querySelector(".results-wrapper").style.display = "none";
+          jsonSection.style.display = "none";
 
           fetch("/generate", {
             method: "POST",
@@ -1317,21 +1403,17 @@
                 displayElement.style.color = "#007bff";
               }
 
-              // Lưu level JSON data để export CSV
+              // Lưu level JSON data để export
               if (levelJson) {
                 currentLevelJson = levelJson;
-                csvSection.style.display = "block";
+                jsonSection.style.display = "block";
               }
-
-              // Hiển thị results wrapper nếu cả 2 sections đều có nội dung
-              document.querySelector(".results-wrapper").style.display = "flex";
             })
             .catch((error) => {
               resultArea.querySelector("h2").textContent = "Lỗi!";
               imageElement.style.display = "none";
               displayElement.style.display = "none";
-              csvSection.style.display = "none";
-              document.querySelector(".results-wrapper").style.display = "none";
+              jsonSection.style.display = "none";
               alert("Lỗi khi tạo level: " + error.message);
               console.error("Fetch Error:", error);
             });
