@@ -1,7 +1,7 @@
 let currentLevelJson = null; // Lưu JSON data để export
 
 // ========== COLOR MANAGEMENT ==========
-let colorList = ['#000000']; // Default: black color
+let colorList = []; // Initialize empty color list
 let colorIndexCounter = 0;
 
 // ========== JSON EXPORT FUNCTIONS ==========
@@ -50,6 +50,10 @@ let snakes = []; // List of completed snakes
 let tunnelFirst = null; // First click for tunnel pair
 let isDragging = false; // Track drag state for snake drawing
 let lastDragCell = null; // Prevent duplicate cells while dragging
+let colorPickerVisible = false; // Track color picker visibility
+let colorPickerTargetSnake = null; // Track which snake is being colored
+let colorPickerTargetType = null; // Track target type: 'snake' or 'hole'
+let colorPickerTargetHoleKey = null; // Track which hole is being colored
 
 function createGrid(rows, cols, preserveData = false) {
   const oldRows = gridRows;
@@ -252,25 +256,39 @@ document.addEventListener('mouseup', function(e) {
   }
 });
 
+// Global click listener to close color picker when clicking outside
+document.addEventListener('click', function(e) {
+  if (colorPickerVisible) {
+    const picker = document.getElementById('color-picker-popup');
+    const clickedInsidePicker = picker && picker.contains(e.target);
+    const clickedOnGrid = e.target.classList.contains('grid-cell');
+    
+    // Close picker if clicked outside of it and not on a grid cell (which shows picker)
+    if (!clickedInsidePicker && !clickedOnGrid) {
+      hideColorPicker();
+    }
+  }
+});
+
 function handleCellClick(e) {
   // For non-snake tools, use click
   const r = parseInt(e.target.dataset.row);
   const c = parseInt(e.target.dataset.col);
   const key = getCellKey(r, c);
 
-  // If clicking on snake cell with snake tool, cycle color
+  // If clicking on snake cell with snake tool, show color picker
   if (currentTool === 'snake') {
     const snakeIndex = snakes.findIndex(snake => 
       snake.path.some(([sr, sc]) => sr === r && sc === c)
     );
     
     if (snakeIndex !== -1) {
-      // Cycle to next color in colorList
+      // Show color picker
       if (colorList.length > 0) {
-        const currentColorID = snakes[snakeIndex].colorID !== undefined ? snakes[snakeIndex].colorID : -1;
-        const nextColorID = (currentColorID + 1) % colorList.length;
-        snakes[snakeIndex].colorID = nextColorID;
-        updateGrid();
+        const rect = e.target.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        showColorPicker(snakeIndex, x, y);
       }
       return;
     }
@@ -282,8 +300,21 @@ function handleCellClick(e) {
     gridData[key] = { type: 'wall', counter: counterValue };
     updateGrid();
   } else if (currentTool === 'hole') {
+    // If clicking on existing hole, show color picker
+    if (gridData[key] && gridData[key].type === 'hole') {
+      if (colorList.length > 0) {
+        const rect = e.target.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        showColorPickerForHole(key, x, y);
+      }
+      return;
+    }
+    // Otherwise create new hole
     if (gridData[key]) delete gridData[key];
-    gridData[key] = { type: 'hole' };
+    // Assign default colorID (first color in list, or -1 if empty)
+    const defaultColorID = colorList.length > 0 ? 0 : -1;
+    gridData[key] = { type: 'hole', colorID: defaultColorID };
     updateGrid();
   } else if (currentTool === 'tunnel') {
     handleTunnelClick(r, c, key);
@@ -307,6 +338,130 @@ function handleCellDelete(r, c, key) {
     return !snake.path.some(pos => pos[0] === r && pos[1] === c);
   });
   updateGrid();
+}
+
+function showColorPicker(snakeIndex, x, y) {
+  const picker = document.getElementById('color-picker-popup');
+  const swatchesContainer = document.getElementById('color-picker-swatches');
+  
+  // Clear previous swatches
+  swatchesContainer.innerHTML = '';
+  
+  // Get current color of the snake
+  const currentColorID = snakes[snakeIndex].colorID !== undefined ? snakes[snakeIndex].colorID : -1;
+  
+  // Create color swatches
+  colorList.forEach((color, index) => {
+    const swatch = document.createElement('div');
+    swatch.className = 'color-swatch';
+    if (index === currentColorID) {
+      swatch.classList.add('selected');
+    }
+    swatch.style.backgroundColor = color;
+    swatch.dataset.colorId = index;
+    
+    // Add click handler
+    swatch.addEventListener('click', function(e) {
+      e.stopPropagation();
+      applyColorToTarget(index);
+    });
+    
+    swatchesContainer.appendChild(swatch);
+  });
+  
+  // Position the picker near the click location
+  picker.style.display = 'block';
+  colorPickerVisible = true;
+  colorPickerTargetSnake = snakeIndex;
+  colorPickerTargetType = 'snake';
+  
+  positionColorPicker(picker, x, y);
+}
+
+function showColorPickerForHole(holeKey, x, y) {
+  const picker = document.getElementById('color-picker-popup');
+  const swatchesContainer = document.getElementById('color-picker-swatches');
+  
+  // Clear previous swatches
+  swatchesContainer.innerHTML = '';
+  
+  // Get current color of the hole
+  const currentColorID = gridData[holeKey] && gridData[holeKey].colorID !== undefined 
+    ? gridData[holeKey].colorID : -1;
+  
+  // Create color swatches
+  colorList.forEach((color, index) => {
+    const swatch = document.createElement('div');
+    swatch.className = 'color-swatch';
+    if (index === currentColorID) {
+      swatch.classList.add('selected');
+    }
+    swatch.style.backgroundColor = color;
+    swatch.dataset.colorId = index;
+    
+    // Add click handler
+    swatch.addEventListener('click', function(e) {
+      e.stopPropagation();
+      applyColorToTarget(index);
+    });
+    
+    swatchesContainer.appendChild(swatch);
+  });
+  
+  // Position the picker near the click location
+  picker.style.display = 'block';
+  colorPickerVisible = true;
+  colorPickerTargetHoleKey = holeKey;
+  colorPickerTargetType = 'hole';
+  
+  positionColorPicker(picker, x, y);
+}
+
+function positionColorPicker(picker, x, y) {
+  // Wait for the picker to render to get its dimensions
+  setTimeout(() => {
+    const pickerRect = picker.getBoundingClientRect();
+    let left = x - pickerRect.width / 2;
+    let top = y + 10; // Position below the click
+    
+    // Keep within viewport bounds
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    if (left < 10) left = 10;
+    if (left + pickerRect.width > viewportWidth - 10) {
+      left = viewportWidth - pickerRect.width - 10;
+    }
+    if (top + pickerRect.height > viewportHeight - 10) {
+      top = y - pickerRect.height - 10; // Position above instead
+    }
+    if (top < 10) top = 10;
+    
+    picker.style.left = left + 'px';
+    picker.style.top = top + 'px';
+  }, 0);
+}
+
+function hideColorPicker() {
+  const picker = document.getElementById('color-picker-popup');
+  picker.style.display = 'none';
+  colorPickerVisible = false;
+  colorPickerTargetSnake = null;
+  colorPickerTargetHoleKey = null;
+  colorPickerTargetType = null;
+}
+
+function applyColorToTarget(colorID) {
+  if (colorPickerTargetType === 'snake' && colorPickerTargetSnake !== null) {
+    snakes[colorPickerTargetSnake].colorID = colorID;
+    updateGrid();
+  } else if (colorPickerTargetType === 'hole' && colorPickerTargetHoleKey !== null) {
+    if (gridData[colorPickerTargetHoleKey]) {
+      gridData[colorPickerTargetHoleKey].colorID = colorID;
+      updateGrid();
+    }
+  }
+  hideColorPicker();
 }
 
 function finishCurrentSnake() {
@@ -371,6 +526,7 @@ function updateGrid() {
     cell.style.display = '';
     cell.style.alignItems = '';
     cell.style.justifyContent = '';
+    cell.style.backgroundColor = '';
   });
 
   // Draw completed snakes
@@ -403,6 +559,17 @@ function updateGrid() {
         cell.style.display = 'flex';
         cell.style.alignItems = 'center';
         cell.style.justifyContent = 'center';
+      }
+      
+      // Display color for holes
+      if (gridData[key].type === 'hole') {
+        const colorID = gridData[key].colorID !== undefined ? gridData[key].colorID : -1;
+        if (colorID >= 0 && colorID < colorList.length) {
+          cell.style.backgroundColor = colorList[colorID];
+        } else {
+          // Fallback to default blue if no valid colorID
+          cell.style.backgroundColor = '#0000ff';
+        }
       }
     }
   });
@@ -563,16 +730,17 @@ function exportCustomLevel() {
     if (item.type === 'wall') {
       levelData.push({
         position: [gridToPos(r, c)],
-        itemType: 'wall',
+        itemType: 'wallBreak',
         itemValueConfig: item.counter || 0,
         colorID: -1
       });
     } else if (item.type === 'hole') {
+      const colorID = item.colorID !== undefined ? item.colorID : -1;
       levelData.push({
         position: [gridToPos(r, c)],
         itemType: 'hole',
         itemValueConfig: 0,
-        colorID: -1
+        colorID: colorID
       });
     } else if (item.type === 'tunnel' && item.pair && !processedTunnels.has(key)) {
       const pair = item.pair;
@@ -604,6 +772,11 @@ function selectTool(toolElement) {
     }
     isDragging = false;
     lastDragCell = null;
+  }
+  
+  // Close color picker when switching tools
+  if (colorPickerVisible) {
+    hideColorPicker();
   }
   
   document.querySelectorAll('.tool-option').forEach(t => t.classList.remove('active'));
@@ -767,7 +940,7 @@ function loadLevelIntoCustom(levelJson) {
       if (path.length >= 2) {
         snakes.push({ path, colorID });
       }
-    } else if (item.itemType === 'wall') {
+    } else if (item.itemType === 'wallBreak' || item.itemType === 'wall') {
       const [r, c] = posToGrid(item.position[0]);
       if (isValidPos(r, c)) {
         const key = getCellKey(r, c);
@@ -777,7 +950,8 @@ function loadLevelIntoCustom(levelJson) {
       const [r, c] = posToGrid(item.position[0]);
       if (isValidPos(r, c)) {
         const key = getCellKey(r, c);
-        gridData[key] = { type: 'hole' };
+        const colorID = item.colorID !== undefined ? item.colorID : -1;
+        gridData[key] = { type: 'hole', colorID: colorID };
       }
     } else if (item.itemType === 'tunnel') {
       const [r1, c1] = posToGrid(item.position[0]);
@@ -811,7 +985,7 @@ function addWallCounter() {
   wallItem.className = 'wall-counter-item';
   wallItem.dataset.index = index;
   wallItem.innerHTML = `
-    <label>Wall ${index + 1}:</label>
+    <label>Wall Break ${index + 1}:</label>
     <input type="number" class="wall-counter-value" min="0" max="99" value="3" />
     <button type="button" class="remove-wall-btn">🗑️</button>
   `;

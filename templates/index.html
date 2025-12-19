@@ -126,17 +126,17 @@
         <label>Chướng ngại vật:</label>
         
         <div style="margin-bottom: 15px;">
-          <label for="wall_list">Wall (Counter):</label>
+          <label for="wall_list">Wall Break:</label>
           <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
             <button type="button" id="add-wall-btn" style="width: auto; padding: 8px 16px; background-color: #28a745;">
-              ➕ Add Wall
+              ➕ Add Wall Break
             </button>
             <button type="button" id="clear-walls-btn" style="width: auto; padding: 8px 16px; background-color: #dc3545;">
               ❌ Clear All
             </button>
           </div>
           <div id="wall-counters-container" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">
-            <!-- Wall counter inputs will be added here -->
+            <!-- Wall Break counter inputs will be added here -->
           </div>
         </div>
         
@@ -204,6 +204,14 @@
       </div>
 
       <div id="custom-tab" class="tab-content">
+        <!-- Color Picker Popup -->
+        <div id="color-picker-popup" class="color-picker-popup" style="display: none;">
+          <div class="color-picker-title">Choose Color</div>
+          <div id="color-picker-swatches" class="color-picker-swatches">
+            <!-- Color swatches will be dynamically added here -->
+          </div>
+        </div>
+
         <div class="custom-level-container">
           <div>
             <div class="grid-controls">
@@ -233,7 +241,7 @@
             </div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
               <div class="tool-option" data-tool="wall" data-key="w" style="flex: 1; margin: 0;">
-                🧱 Wall <span style="float: right; font-size: 11px; color: #999;">[W]</span>
+                🧱 Wall Break <span style="float: right; font-size: 11px; color: #999;">[W]</span>
               </div>
               <input type="number" id="wall-counter-input" min="0" max="99" value="3" 
                      style="width: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-weight: bold; text-align: center;">

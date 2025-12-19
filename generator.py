@@ -98,11 +98,11 @@ def is_in_emoji_shape(r, c, SHAPE_PARAMS):
 
 # --- HÀM TẠO JSON OUTPUT ---
 
-def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counters=None, snake_colors=None):
+def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counters=None, snake_colors=None, hole_colors=None):
     """
     Tạo JSON data cho level với format:
     [
-        {"position": [...], "itemType": "snake/wall/hole/tunnel", "itemValueConfig": 0, "colorID": 0}
+        {"position": [...], "itemType": "snake/wallBreak/hole/tunnel", "itemValueConfig": 0, "colorID": 0}
     ]
     Gốc tọa độ (0, 0) nằm ở tâm của bounding box chứa tất cả items.
     """
@@ -184,18 +184,20 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
                 processed_tunnels.add(partner)
         elif color == (0, 0, 255):  # Hole (màu xanh dương)
             position_objects = [create_position_object(r, c)]
+            # Get colorID from hole_colors map
+            hole_color_id = hole_colors.get((r, c), -1) if hole_colors else -1
             level_data.append({
                 "position": position_objects,
                 "itemType": "hole",
                 "itemValueConfig": 0,
-                "colorID": -1
+                "colorID": hole_color_id
             })
         elif color == (128, 0, 128):  # Wall (màu tím)
             position_objects = [create_position_object(r, c)]
             counter_value = wall_counters.get((r, c), 0)
             level_data.append({
                 "position": position_objects,
-                "itemType": "wall",
+                "itemType": "wallBreak",
                 "itemValueConfig": counter_value,
                 "colorID": -1
             })
@@ -204,13 +206,15 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
 
 # --- CÁC HÀM PHỤ TRỢ (VẼ VÀ TÌM ĐƯỜNG) ---
 
-def draw_grid_lines(draw, ROWS, COLS, occupied_cells, obstacles, tunnel_positions, wall_counters=None):
+def draw_grid_lines(draw, ROWS, COLS, occupied_cells, obstacles, tunnel_positions, wall_counters=None, hole_color_map=None, color_list=None):
     from PIL import ImageFont
     GRID_COLOR = (235, 235, 235)
     OCCUPIED_COLOR = (220, 220, 220)
     
     obstacles = obstacles or {}
     wall_counters = wall_counters or {}
+    hole_color_map = hole_color_map or {}
+    color_list = color_list or []
     
     # Try to load a font for counter text
     try:
@@ -235,6 +239,17 @@ def draw_grid_lines(draw, ROWS, COLS, occupied_cells, obstacles, tunnel_position
                                   (x + CELL_SIZE - padding, y + CELL_SIZE - padding)], 
                                  fill=color, outline=(50, 50, 50))
                 else:
+                    # Check if this is a hole and get its actual color
+                    if color == (0, 0, 255) and (r, c) in hole_color_map:
+                        color_id = hole_color_map[(r, c)]
+                        if color_id >= 0 and color_id < len(color_list):
+                            # Convert hex color to RGB
+                            hex_color = color_list[color_id]
+                            try:
+                                color = tuple(int(hex_color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+                            except:
+                                color = (0, 0, 255)  # Fallback to blue
+                    
                     # Vẽ WALL/HOLE dạng ô vuông
                     draw.rectangle(rect, fill=color, outline=GRID_COLOR)
                     
@@ -525,6 +540,7 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
     tunnel_map = {}
     tunnel_positions = set()
     wall_counter_map = {}  # Map position to counter value
+    hole_color_map = {}  # Map position to colorID for holes
 
     empty_cells = [ (r,c) for r in range(ROWS) for c in range(COLS) 
                    if is_in_emoji_shape(r,c,SHAPE_PARAMS) and (r,c) not in occupied_cells ]
@@ -537,9 +553,16 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
             pos = empty_cells.pop()
             obstacles[pos] = (128, 0, 128)
             wall_counter_map[pos] = counter_value
-    # Hole (Xanh dương)
+    # Hole (Xanh dương) with random color
     for _ in range(hole_count):
-        if empty_cells: obstacles[empty_cells.pop()] = (0, 0, 255)
+        if empty_cells:
+            pos = empty_cells.pop()
+            obstacles[pos] = (0, 0, 255)
+            # Assign random colorID from color_list
+            if color_list and len(color_list) > 0:
+                hole_color_map[pos] = random.randint(0, len(color_list) - 1)
+            else:
+                hole_color_map[pos] = -1
     # Tunnel (Hình tròn cặp màu)
     for _ in range(tunnel_count):
         if len(empty_cells) >= 2:
@@ -557,7 +580,7 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
     hole_positions = {pos for pos, color in obstacles.items() if color == (0, 0, 255)}
 
 # --- VẼ CUỐI CÙNG ---
-    draw_grid_lines(draw, ROWS, COLS, occupied_cells, obstacles, tunnel_positions, wall_counter_map)
+    draw_grid_lines(draw, ROWS, COLS, occupied_cells, obstacles, tunnel_positions, wall_counter_map, hole_color_map, color_list)
 
     for idx, path_pixels in enumerate(final_paths_pixels):
         # Get color from color_list based on colorID
@@ -577,7 +600,7 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
     base64_image = base64.b64encode(img_io.read()).decode('utf-8')
     
     # Tạo JSON data cho level
-    level_json = generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counter_map, final_paths_colors)
+    level_json = generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counter_map, final_paths_colors, hole_color_map)
     
     return {
         'base64_image': base64_image,

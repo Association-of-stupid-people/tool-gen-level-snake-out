@@ -375,4 +375,67 @@ button:hover {
 .controls-group > div {
   flex: 1;
 }
+.color-picker-popup {
+  position: fixed;
+  background: white;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  animation: fadeIn 0.15s ease-in;
+}
+.color-picker-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.color-picker-swatches {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  max-width: 150px;
+}
+.color-swatch {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.color-swatch:hover {
+  transform: scale(1.1);
+  border-color: #333;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.color-swatch.selected {
+  border-color: #007bff;
+  border-width: 3px;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.3);
+}
+.color-swatch.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 
