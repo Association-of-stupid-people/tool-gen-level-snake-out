@@ -98,7 +98,7 @@ def is_in_emoji_shape(r, c, SHAPE_PARAMS):
 
 # --- HÀM TẠO JSON OUTPUT ---
 
-def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counters=None, snake_colors=None, hole_colors=None):
+def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counters=None, snake_colors=None, hole_colors=None, tunnel_colors=None, color_list=None):
     """
     Tạo JSON data cho level với format:
     [
@@ -174,11 +174,25 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
                     create_position_object(r, c),
                     create_position_object(partner[0], partner[1])
                 ]
+                
+                # Get tunnel color and convert to colorID
+                tunnel_color_id = -1
+                if tunnel_colors and (r, c) in tunnel_colors:
+                    hex_color = tunnel_colors[(r, c)]
+                    # Try to find color in color_list, if not found add it
+                    if color_list:
+                        try:
+                            tunnel_color_id = color_list.index(hex_color)
+                        except ValueError:
+                            # Color not in list, add it
+                            color_list.append(hex_color)
+                            tunnel_color_id = len(color_list) - 1
+                
                 level_data.append({
                     "position": position_objects,
                     "itemType": "tunnel",
                     "itemValueConfig": 0,
-                    "colorID": -1
+                    "colorID": tunnel_color_id
                 })
                 processed_tunnels.add((r, c))
                 processed_tunnels.add(partner)
@@ -563,16 +577,21 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
                 hole_color_map[pos] = random.randint(0, len(color_list) - 1)
             else:
                 hole_color_map[pos] = -1
-    # Tunnel (Hình tròn cặp màu)
+    # Tunnel (Hình tròn cặp màu) - lưu màu để export
+    tunnel_color_map = {}  # Map position to hex color
     for _ in range(tunnel_count):
         if len(empty_cells) >= 2:
             t1, t2 = empty_cells.pop(), empty_cells.pop()
             t_color = (random.randint(50,200), random.randint(50,200), random.randint(50,200))
+            # Convert RGB to hex for export
+            hex_color = '#{:02x}{:02x}{:02x}'.format(t_color[0], t_color[1], t_color[2])
             obstacles[t1] = t_color
             obstacles[t2] = t_color
             tunnel_map[t1] = t2
             tunnel_map[t2] = t1
             tunnel_positions.update([t1, t2])
+            tunnel_color_map[t1] = hex_color
+            tunnel_color_map[t2] = hex_color
 
     for pos in obstacles: occupied_cells.add(pos)
 
@@ -600,7 +619,7 @@ def generate_level_image(arrow_count, shape_input=None, uploaded_image_bytes=Non
     base64_image = base64.b64encode(img_io.read()).decode('utf-8')
     
     # Tạo JSON data cho level
-    level_json = generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counter_map, final_paths_colors, hole_color_map)
+    level_json = generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counter_map, final_paths_colors, hole_color_map, tunnel_color_map, color_list)
     
     return {
         'base64_image': base64_image,

@@ -497,19 +497,30 @@ function finishCurrentSnake() {
   }
 }
 
+function generateRandomTunnelColor() {
+  // Generate random RGB color
+  const r = Math.floor(Math.random() * 150) + 50; // 50-200
+  const g = Math.floor(Math.random() * 150) + 50;
+  const b = Math.floor(Math.random() * 150) + 50;
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
 function handleTunnelClick(r, c, key) {
   if (gridData[key]) return; // Cell occupied
   
   if (!tunnelFirst) {
-    tunnelFirst = { r, c, key };
-    gridData[key] = { type: 'tunnel', pair: null };
+    // First tunnel of pair - generate new color
+    const tunnelColor = generateRandomTunnelColor();
+    tunnelFirst = { r, c, key, color: tunnelColor };
+    gridData[key] = { type: 'tunnel', pair: null, color: tunnelColor };
     updateGrid();
   } else {
-    // Create pair
+    // Create pair with same color
     const key1 = tunnelFirst.key;
     const key2 = key;
-    gridData[key1] = { type: 'tunnel', pair: { r, c } };
-    gridData[key2] = { type: 'tunnel', pair: { r: tunnelFirst.r, c: tunnelFirst.c } };
+    const tunnelColor = tunnelFirst.color;
+    gridData[key1] = { type: 'tunnel', pair: { r, c }, color: tunnelColor };
+    gridData[key2] = { type: 'tunnel', pair: { r: tunnelFirst.r, c: tunnelFirst.c }, color: tunnelColor };
     tunnelFirst = null;
     updateGrid();
   }
@@ -569,6 +580,17 @@ function updateGrid() {
         } else {
           // Fallback to default blue if no valid colorID
           cell.style.backgroundColor = '#0000ff';
+        }
+      }
+      
+      // Display color for tunnels
+      if (gridData[key].type === 'tunnel') {
+        const tunnelColor = gridData[key].color;
+        if (tunnelColor) {
+          cell.style.backgroundColor = tunnelColor;
+        } else {
+          // Fallback to default cyan if no color specified
+          cell.style.backgroundColor = '#00bcd4';
         }
       }
     }
@@ -748,6 +770,19 @@ function exportCustomLevel() {
       processedTunnels.add(key);
       processedTunnels.add(pairKey);
       
+      // Get tunnel color and find/add to colorList
+      let tunnelColorID = -1;
+      if (item.color) {
+        const colorIndex = colorList.indexOf(item.color);
+        if (colorIndex !== -1) {
+          tunnelColorID = colorIndex;
+        } else {
+          // Add tunnel color to colorList
+          colorList.push(item.color);
+          tunnelColorID = colorList.length - 1;
+        }
+      }
+      
       levelData.push({
         position: [
           gridToPos(r, c),
@@ -755,7 +790,7 @@ function exportCustomLevel() {
         ],
         itemType: 'tunnel',
         itemValueConfig: 0,
-        colorID: -1
+        colorID: tunnelColorID
       });
     }
   });
@@ -777,6 +812,26 @@ function selectTool(toolElement) {
   // Close color picker when switching tools
   if (colorPickerVisible) {
     hideColorPicker();
+  }
+  
+  // Check for unpaired tunnel
+  if (tunnelFirst !== null) {
+    const result = confirm(
+      'You have an unpaired tunnel. What would you like to do?\n\n' +
+      'Click OK to delete the unpaired tunnel and switch tools.\n' +
+      'Click Cancel to stay on Tunnel tool.'
+    );
+    
+    if (!result) {
+      // User chose to stay on tunnel tool
+      return;
+    } else {
+      // User chose to delete unpaired tunnel
+      const key = tunnelFirst.key;
+      delete gridData[key];
+      tunnelFirst = null;
+      updateGrid();
+    }
   }
   
   document.querySelectorAll('.tool-option').forEach(t => t.classList.remove('active'));
@@ -959,8 +1014,16 @@ function loadLevelIntoCustom(levelJson) {
       if (isValidPos(r1, c1) && isValidPos(r2, c2)) {
         const key1 = getCellKey(r1, c1);
         const key2 = getCellKey(r2, c2);
-        gridData[key1] = { type: 'tunnel', pair: { r: r2, c: c2 } };
-        gridData[key2] = { type: 'tunnel', pair: { r: r1, c: c1 } };
+        
+        // Get tunnel color from colorID
+        let tunnelColor = '#00bcd4'; // Default cyan
+        const colorID = item.colorID !== undefined ? item.colorID : -1;
+        if (colorID >= 0 && colorID < colorList.length) {
+          tunnelColor = colorList[colorID];
+        }
+        
+        gridData[key1] = { type: 'tunnel', pair: { r: r2, c: c2 }, color: tunnelColor };
+        gridData[key2] = { type: 'tunnel', pair: { r: r1, c: c1 }, color: tunnelColor };
       }
     }
   });
