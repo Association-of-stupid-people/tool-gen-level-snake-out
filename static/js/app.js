@@ -884,6 +884,86 @@ document.getElementById('clear-grid-btn').addEventListener('click', function() {
   }
 });
 
+document.getElementById('import-json-btn').addEventListener('click', function() {
+  const input = document.getElementById('import-json-input');
+  
+  input.onchange = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Check file extension
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      alert('Please select a JSON file (.json)');
+      input.value = '';
+      return;
+    }
+    
+    // Check file size (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      alert('File too large (max 5MB)');
+      input.value = '';
+      return;
+    }
+    
+    // Read file
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      try {
+        const jsonData = JSON.parse(event.target.result);
+        
+        // Validate JSON format
+        if (!Array.isArray(jsonData)) {
+          throw new Error('JSON must be an array of items');
+        }
+        
+        // Basic validation: check if items have required fields
+        const isValid = jsonData.every(item => 
+          item.position && 
+          Array.isArray(item.position) && 
+          item.itemType
+        );
+        
+        if (!isValid) {
+          throw new Error('Invalid JSON format. Each item must have "position" and "itemType" fields.');
+        }
+        
+        // Check if grid has content
+        const hasContent = snakes.length > 0 || Object.keys(gridData).length > 0;
+        
+        if (hasContent) {
+          if (!confirm('Import will replace current content. Continue?')) {
+            input.value = '';
+            return;
+          }
+        }
+        
+        // Load the JSON into grid
+        loadLevelIntoCustom(jsonData);
+        
+        alert('JSON imported successfully!');
+        
+        // Reset input
+        input.value = '';
+        
+      } catch (error) {
+        alert('Error reading JSON file:\n' + error.message);
+        input.value = '';
+      }
+    };
+    
+    reader.onerror = function() {
+      alert('Error reading file');
+      input.value = '';
+    };
+    
+    reader.readAsText(file);
+  };
+  
+  // Trigger file input
+  input.click();
+});
+
 // ========== DYNAMIC BUTTON TEXT UPDATE ==========
 function updateGenerateButtonText() {
   const levelNumber = document.getElementById('level_number').value || '1';
