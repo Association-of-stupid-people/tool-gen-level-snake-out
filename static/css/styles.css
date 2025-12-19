@@ -207,24 +207,24 @@ body {
 .wall-counter-item {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 8px 12px;
+  gap: 4px;
+  padding: 4px 8px;
   background: #f8f9fa;
-  border: 2px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
 }
 .color-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 4px;
+  padding: 4px 8px;
   background: #f8f9fa;
-  border: 2px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
 }
 .color-item input[type="color"] {
-  width: 50px;
-  height: 35px;
+  width: 35px;
+  height: 28px;
   padding: 0;
   border: 1px solid #ccc;
   border-radius: 3px;
@@ -232,42 +232,43 @@ body {
 }
 .color-item button {
   width: auto;
-  padding: 4px 8px;
+  padding: 3px 6px;
   margin: 0;
   background-color: #dc3545;
-  font-size: 12px;
+  font-size: 11px;
 }
 .color-item button:hover {
   background-color: #c82333;
 }
 .color-item label {
   margin: 0;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   color: #666;
-  min-width: 60px;
+  min-width: 50px;
 }
 .wall-counter-item input {
-  width: 50px;
-  padding: 6px;
+  width: 40px;
+  padding: 4px;
   border: 1px solid #ccc;
   border-radius: 3px;
   text-align: center;
   font-weight: bold;
+  font-size: 12px;
 }
 .wall-counter-item button {
   width: auto;
-  padding: 4px 8px;
+  padding: 3px 6px;
   margin: 0;
   background-color: #dc3545;
-  font-size: 12px;
+  font-size: 11px;
 }
 .wall-counter-item button:hover {
   background-color: #c82333;
 }
 .wall-counter-item label {
   margin: 0;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   color: #666;
 }
@@ -290,31 +291,33 @@ h1 {
 }
 label {
   display: block;
-  margin-top: 10px;
+  margin-top: 6px;
   font-weight: bold;
   color: #555;
+  font-size: 13px;
 }
 input[type="number"],
 input[type="text"],
 input[type="file"],
 select {
   width: 100%;
-  padding: 10px;
-  margin-top: 5px;
-  margin-bottom: 15px;
+  padding: 6px 8px;
+  margin-top: 3px;
+  margin-bottom: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
+  font-size: 13px;
 }
 button {
   background-color: #007bff;
   color: white;
-  padding: 12px 20px;
+  padding: 8px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   width: 100%;
-  font-size: 16px;
+  font-size: 14px;
   transition: background-color 0.3s;
 }
 button:hover {
