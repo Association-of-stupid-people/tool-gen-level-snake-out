@@ -7,9 +7,6 @@ interface RightSidebarProps {
     onShapeChange: (shape: 'rectangle' | 'circle' | 'line' | 'triangle' | 'diamond' | 'frame') => void
     onImageUpload: (file: File) => void
     onClearGrid: () => void
-    rows: number
-    cols: number
-    onGridSizeChange: (rows: number, cols: number) => void
 }
 
 export function RightSidebar({
@@ -18,10 +15,7 @@ export function RightSidebar({
     currentShape,
     onShapeChange,
     onImageUpload,
-    onClearGrid,
-    rows,
-    cols,
-    onGridSizeChange
+    onClearGrid
 }: RightSidebarProps) {
     const tools = [
         { id: 'pen' as const, icon: Pencil, label: 'Pen' },
@@ -40,28 +34,28 @@ export function RightSidebar({
 
     return (
         <div className="w-80 bg-gray-800 border-l border-gray-700 p-6 overflow-y-auto">
-            <h2 className="text-xl font-bold text-white mb-6">Tools</h2>
+            <h2 className="text-lg font-bold text-white mb-6">Tools & Options</h2>
 
-            {/* Drawing Tools - Vertical */}
-            <div className="space-y-3 mb-8">
+            {/* Tool Selection */}
+            <div className="flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl">
                 {tools.map(tool => {
                     const Icon = tool.icon
                     const isActive = currentTool === tool.id
-
                     return (
                         <button
                             key={tool.id}
                             onClick={() => onToolChange(tool.id)}
                             className={`
-                                w-full flex items-center gap-3 p-4 rounded-xl transition-all
+                                flex-1 flex flex-col items-center justify-center py-3 rounded-lg gap-1.5
+                                transition-all duration-200
                                 ${isActive
-                                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
-                                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                    ? 'bg-purple-600 text-white shadow-lg'
+                                    : 'text-gray-400 hover:text-white hover:bg-gray-600'
                                 }
                             `}
                         >
-                            <Icon size={22} />
-                            <span className="text-sm font-medium">{tool.label}</span>
+                            <Icon size={20} />
+                            <span className="text-xs font-medium">{tool.label}</span>
                         </button>
                     )
                 })}
@@ -77,12 +71,12 @@ export function RightSidebar({
                                 key={shape.id}
                                 onClick={() => onShapeChange(shape.id)}
                                 className={`
-                  p-2 rounded-lg text-xs font-medium transition-all
-                  ${currentShape === shape.id
+                                    p-2 rounded-lg text-xs font-medium transition-all
+                                    ${currentShape === shape.id
                                         ? 'bg-purple-600 text-white'
                                         : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                                     }
-                `}
+                                `}
                             >
                                 {shape.label}
                             </button>
@@ -93,60 +87,38 @@ export function RightSidebar({
 
             {/* Parameters Section */}
             <div className="space-y-6">
-                {/* Grid Size */}
+
+                {/* Image Import */}
                 <div className="bg-gray-700/50 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-white mb-3">Grid Size</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs text-gray-400 mb-1">Rows</label>
-                            <input
-                                type="number"
-                                value={rows}
-                                onChange={e => onGridSizeChange(Number(e.target.value), cols)}
-                                className="w-full bg-gray-600 border border-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
-                                min="10"
-                                max="200"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs text-gray-400 mb-1">Cols</label>
-                            <input
-                                type="number"
-                                value={cols}
-                                onChange={e => onGridSizeChange(rows, Number(e.target.value))}
-                                className="w-full bg-gray-600 border border-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
-                                min="10"
-                                max="200"
-                            />
+                    <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                        <Upload size={16} /> Import Mask
+                    </h3>
+                    <div className="relative group">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) onImageUpload(file)
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <div className="w-full border-2 border-dashed border-gray-600 rounded-lg p-4 text-center text-gray-400 group-hover:border-purple-500 group-hover:text-purple-400 transition-colors">
+                            <span className="text-xs">Click or Drop Image</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Image Import */}
-                <div className="bg-gray-700/50 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-white mb-3">Import Image</h3>
-                    <label className="flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer transition">
-                        <Upload size={18} />
-                        <span className="text-sm font-medium">Upload Mask</span>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={e => e.target.files?.[0] && onImageUpload(e.target.files[0])}
-                        />
-                    </label>
-                    <p className="text-xs text-gray-400 mt-2">Upload an image to auto-trace</p>
-                </div>
-
                 {/* Actions */}
                 <div className="bg-gray-700/50 rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-white mb-3">Actions</h3>
+                    <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                        <Trash2 size={16} /> Actions
+                    </h3>
                     <button
                         onClick={onClearGrid}
-                        className="w-full flex items-center justify-center gap-2 p-3 bg-red-600 hover:bg-red-700 rounded-lg transition"
+                        className="w-full py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/30 transition-colors text-sm font-medium"
                     >
-                        <Trash2 size={18} />
-                        <span className="text-sm font-medium">Clear Grid</span>
+                        Clear Grid
                     </button>
                 </div>
             </div>

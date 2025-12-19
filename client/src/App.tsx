@@ -90,14 +90,20 @@ function App() {
 
   return (
     <div className="h-screen flex bg-gray-900 text-white">
-      {/* Left Sidebar - Panel Selection */}
-      <LeftSidebar activePanel={activePanel} onPanelChange={setActivePanel} />
+      {/* Left Sidebar - Panel Selection & Grid Settings */}
+      <LeftSidebar
+        activePanel={activePanel}
+        onPanelChange={setActivePanel}
+        rows={rows}
+        cols={cols}
+        onGridSizeChange={handleGridSizeChange}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="h-14 bg-gray-800 border-b border-gray-700 flex items-center px-6">
-          <h1 className="text-xl font-bold">
+        {/* Header - now simpler since panels are in sidebar */}
+        <div className="h-14 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6">
+          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
             {activePanel === 'panel1' && '📐 Grid Editor'}
             {activePanel === 'panel2' && '🎮 Level Generator'}
             {activePanel === 'settings' && '⚙️ Settings'}
@@ -105,7 +111,7 @@ function App() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden relative">
           {activePanel === 'panel1' && (
             <GridCanvas
               gridData={gridData}
@@ -118,18 +124,18 @@ function App() {
             />
           )}
           {activePanel === 'panel2' && (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <div className="text-center">
-                <p className="text-xl mb-2">🚧 Generator Panel</p>
-                <p className="text-sm">Coming in Phase 2</p>
+            <div className="flex items-center justify-center h-full text-gray-500 bg-gray-900/50">
+              <div className="text-center p-8 bg-gray-800 rounded-2xl shadow-xl">
+                <p className="text-2xl mb-4">🚧 Generator Panel</p>
+                <p className="text-gray-400">Coming in Phase 2</p>
               </div>
             </div>
           )}
           {activePanel === 'settings' && (
             <div className="flex items-center justify-center h-full text-gray-500">
-              <div className="text-center">
-                <p className="text-xl mb-2">⚙️ Settings Panel</p>
-                <p className="text-sm">Coming soon</p>
+              <div className="text-center p-8 bg-gray-800 rounded-2xl shadow-xl">
+                <p className="text-2xl mb-4">⚙️ Settings Panel</p>
+                <p className="text-gray-400">Coming soon</p>
               </div>
             </div>
           )}
@@ -145,9 +151,6 @@ function App() {
           onShapeChange={setCurrentShape}
           onImageUpload={handleImageUpload}
           onClearGrid={handleClearGrid}
-          rows={rows}
-          cols={cols}
-          onGridSizeChange={handleGridSizeChange}
         />
       )}
     </div>
