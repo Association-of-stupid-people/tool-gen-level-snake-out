@@ -770,19 +770,7 @@ function exportCustomLevel() {
       processedTunnels.add(key);
       processedTunnels.add(pairKey);
       
-      // Get tunnel color and find/add to colorList
-      let tunnelColorID = -1;
-      if (item.color) {
-        const colorIndex = colorList.indexOf(item.color);
-        if (colorIndex !== -1) {
-          tunnelColorID = colorIndex;
-        } else {
-          // Add tunnel color to colorList
-          colorList.push(item.color);
-          tunnelColorID = colorList.length - 1;
-        }
-      }
-      
+      // Tunnel colors are visual only, not exported
       levelData.push({
         position: [
           gridToPos(r, c),
@@ -790,7 +778,7 @@ function exportCustomLevel() {
         ],
         itemType: 'tunnel',
         itemValueConfig: 0,
-        colorID: tunnelColorID
+        colorID: -1  // Tunnel colors are visual only
       });
     }
   });
@@ -1015,12 +1003,8 @@ function loadLevelIntoCustom(levelJson) {
         const key1 = getCellKey(r1, c1);
         const key2 = getCellKey(r2, c2);
         
-        // Get tunnel color from colorID
-        let tunnelColor = '#00bcd4'; // Default cyan
-        const colorID = item.colorID !== undefined ? item.colorID : -1;
-        if (colorID >= 0 && colorID < colorList.length) {
-          tunnelColor = colorList[colorID];
-        }
+        // Generate random color for visual distinction (not from colorList)
+        const tunnelColor = generateRandomTunnelColor();
         
         gridData[key1] = { type: 'tunnel', pair: { r: r2, c: c2 }, color: tunnelColor };
         gridData[key2] = { type: 'tunnel', pair: { r: r1, c: c1 }, color: tunnelColor };

@@ -99,6 +99,7 @@ def is_in_emoji_shape(r, c, SHAPE_PARAMS):
 # --- HÀM TẠO JSON OUTPUT ---
 
 def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, wall_counters=None, snake_colors=None, hole_colors=None, tunnel_colors=None, color_list=None):
+    # Note: tunnel_colors and color_list params kept for compatibility but tunnel colorID is always -1
     """
     Tạo JSON data cho level với format:
     [
@@ -168,6 +169,7 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
     for (r, c), color in obstacles.items():
         if (r, c) in tunnel_positions:
             # Xử lý tunnel (chỉ thêm 1 lần cho mỗi cặp)
+            # Tunnel colors are for visual only, not exported
             if (r, c) not in processed_tunnels:
                 partner = tunnel_map[(r, c)]
                 position_objects = [
@@ -175,24 +177,11 @@ def generate_level_json(final_paths_indices, obstacles, tunnel_map, ROWS, COLS, 
                     create_position_object(partner[0], partner[1])
                 ]
                 
-                # Get tunnel color and convert to colorID
-                tunnel_color_id = -1
-                if tunnel_colors and (r, c) in tunnel_colors:
-                    hex_color = tunnel_colors[(r, c)]
-                    # Try to find color in color_list, if not found add it
-                    if color_list:
-                        try:
-                            tunnel_color_id = color_list.index(hex_color)
-                        except ValueError:
-                            # Color not in list, add it
-                            color_list.append(hex_color)
-                            tunnel_color_id = len(color_list) - 1
-                
                 level_data.append({
                     "position": position_objects,
                     "itemType": "tunnel",
                     "itemValueConfig": 0,
-                    "colorID": tunnel_color_id
+                    "colorID": -1  # Tunnel colors are visual only
                 })
                 processed_tunnels.add((r, c))
                 processed_tunnels.add(partner)
