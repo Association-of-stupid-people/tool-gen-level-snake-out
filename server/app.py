@@ -43,14 +43,16 @@ def generate():
         except:
             wall_counters = []
         
-        colors_str = request.form.get('colors', '["#000000"]')
         try:
             color_list = json.loads(colors_str)
         except:
             color_list = ['#000000']
         
-        hole_count = safe_int('hole_count', 0)
-        tunnel_count = safe_int('tunnel_count', 0)
+        obstacles_str = request.form.get('obstacles', '[]')
+        try:
+            obstacles_list = json.loads(obstacles_str)
+        except:
+            obstacles_list = []
         
         # Validation
         if max_arrow_length < min_arrow_length: max_arrow_length = min_arrow_length
@@ -76,9 +78,7 @@ def generate():
             max_arrow_length=max_arrow_length,
             min_bends=min_bends,
             max_bends=max_bends,
-            wall_counters=wall_counters,
-            hole_count=hole_count,
-            tunnel_count=tunnel_count,
+            obstacles_input=obstacles_list,
             color_list=color_list
         )
         

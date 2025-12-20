@@ -1,32 +1,87 @@
-# Tool Gen Level Snake Out
-This project generates level images and JSON data for a Snake game variant.
+# Tool Gen Level Snake Out 🐍
 
-## Project Structure
-The project is split into two main components:
+A powerful level generator tool for a Snake game variant, featuring a visual grid editor, parametric generation, and instant preview. Built with a React frontend and Python Flask backend.
 
-### 1. Client (`/client`)
-- **Technology**: React + Vite (Planned)
-- **Status**: Folder created. Requires Node.js to initialize.
-- **Setup**:
-  1. Install Node.js.
-  2. Run `npm create vite@latest client -- --template react-ts` inside the root folder (or inside `client` if empty).
-  3. `cd client && npm install && npm run dev`
+## 🏗 Architecture
 
-### 2. Server (`/server`)
-- **Technology**: Python (Flask)
-- **Status**: Refactored to REST API.
-- **Setup**:
-  1. `cd server`
-  2. `pip install -r requirements.txt`
-  3. `python app.py`
-  - Runs on `http://localhost:5000`
+The project is structured as a modern Client-Server application:
 
-## API Endpoints
-- `GET /api/shapes`: Returns available shape names.
-- `POST /api/generate`: Generates a level. Expects form-data:
-  - `arrow_count`: int
-  - `min_arrow_length`, `max_arrow_length`: int
-  - `min_bends`, `max_bends`: int
-  - `wall_counters`: JSON string array `[{"r":..., "c":...}, ...]` (or simplified logic)
-  - `colors`: JSON string array of hex codes
-  - `image_file`: (Optional) Uploaded mask image.
+-   **Backend (`/server`)**: Python Flask API handling core logic, image processing, and generation algorithms.
+-   **Frontend (`/client`)**: React + Vite application providing a rich user interface for configuration and visualization.
+
+## 🚀 Getting Started
+
+### Prerequisites
+-   **Node.js** (v18+ recommended)
+-   **Python** (v3.8+)
+-   **pip**
+
+### 1. Backend Setup (Server)
+Navigate to the root directory and set up the Python environment:
+
+```bash
+# Create virtual environment (optional but recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the server
+python server/app.py
+```
+*The server will start at `http://localhost:5000`*
+
+### 2. Frontend Setup (Client)
+Open a new terminal and navigate to the client folder:
+
+```bash
+cd client
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
+```
+*The client will start at `http://localhost:5173`*
+
+## ✨ Features
+
+### 🛠 Grid Editor (Panel 1)
+-   **Visual Editor**: Draw directly on the grid to create custom shapes or "masks" for generation.
+-   **Tools**: Pen, Eraser, and Shape tools (Rectangle, Circle, Line, etc.).
+-   **Import**: Upload an image to automatically convert it into a grid mask.
+
+### 🎮 Level Generator (Panel 2)
+-   **Parametric Generation**: Configure `Arrow Count`, `Length Range`, `Bends`, `Holes`, and `Tunnels`.
+-   **Real-time Preview**: See the generated level image instantly.
+-   **Export Tools**:
+    -   **Download Image**: Save the level as a high-quality PNG.
+    -   **Download JSON**: Export the level data for the game engine.
+    -   **Naming Config**: Set customizable `Prefix` and `Suffix` for files (e.g., `level_01_v2.json`).
+
+### ⚙️ Global Settings
+-   **Grid Configuration**: Adjust Width and Height dynamically.
+-   **Visuals**: Customize the Background Color.
+-   **Palette**: Manage the "Snake Color Palette" used for generation.
+
+## 📝 API Reference
+
+### `GET /api/shapes`
+Returns a list of available pre-defined shapes.
+
+### `POST /api/generate`
+Generates a level based on provided parameters.
+**Body (FormData):**
+-   `arrow_count`, `min/max_arrow_length`, `min/max_bends`: (int) Generation parameters.
+-   `colors`: (JSON string) Array of hex color codes.
+-   `hole_count`, `tunnel_count`: (int) Obstacle counts.
+-   `image_file`: (File, Optional) Mask image for constrained generation.
+
+## 🤝 Contributing
+1.  Fork the repository.
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.

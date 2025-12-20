@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 
 interface GridCanvasProps {
     gridData: boolean[][]
@@ -8,11 +9,32 @@ interface GridCanvasProps {
     cols: number
     currentTool: 'pen' | 'eraser' | 'shape'
     currentShape: 'rectangle' | 'circle' | 'line' | 'triangle' | 'diamond' | 'frame'
+    readOnlyGrid?: boolean
+    overlays?: {
+        arrows: { id: number, row: number, col: number, direction: string, color: string, path?: { row: number, col: number }[], type?: string, keyId?: number, lockId?: number }[],
+        obstacles: { id: number, row: number, col: number, type: string, color?: string, count?: number, cells?: { row: number, col: number }[], direction?: string, snakeId?: number, keySnakeId?: number, lockedSnakeId?: number, countdown?: number }[]
+    }
+    previewPath?: { row: number, col: number }[]
+    previewObstacle?: { cells: { row: number, col: number }[], type: string, color?: string }
+    onItemContextMenu?: (e: React.MouseEvent, item: { type: 'arrow' | 'obstacle', data: any, index: number }) => void
 }
 
 const CELL_SIZE = 25
 
-export function GridCanvas({ gridData, onCellToggle, onBulkCellToggle, rows, cols, currentTool, currentShape }: GridCanvasProps) {
+export function GridCanvas({
+    gridData,
+    onCellToggle,
+    onBulkCellToggle,
+    rows,
+    cols,
+    currentTool,
+    currentShape,
+    readOnlyGrid = false,
+    overlays,
+    previewPath,
+    previewObstacle,
+    onItemContextMenu
+}: GridCanvasProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const [zoom, setZoom] = useState(1)
@@ -169,8 +191,352 @@ export function GridCanvas({ gridData, onCellToggle, onBulkCellToggle, rows, col
             }
         }
 
+        // Draw Overlays (Generator Mode)
+        if (overlays) {
+            // Draw Obstacles
+            const drawObstacleItem = (obs: any, isPreview: boolean = false) => {
+                const cells = obs.cells || [{ row: obs.row, col: obs.col }]
+
+                cells.forEach((cell: any) => {
+                    const x = cell.col * CELL_SIZE
+                    const y = cell.row * CELL_SIZE
+                    const cx = x + CELL_SIZE / 2
+                    const cy = y + CELL_SIZE / 2
+
+                    if (isPreview) {
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
+                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
+                    } else {
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)' // Dim the cell
+                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
+                    }
+
+                    // Icon based on type
+                    if (obs.type === 'wall' || obs.type === 'wall_break') {
+                        const pad = 2
+
+                        // Check which neighbors are part of this wall (for connected look)
+                        const hasTop = cells.some((c: any) => c.row === cell.row - 1 && c.col === cell.col)
+                        const hasBottom = cells.some((c: any) => c.row === cell.row + 1 && c.col === cell.col)
+                        const hasLeft = cells.some((c: any) => c.row === cell.row && c.col === cell.col - 1)
+                        const hasRight = cells.some((c: any) => c.row === cell.row && c.col === cell.col + 1)
+
+                        // Calculate draw rect with padding only on outer edges
+                        const drawX = hasLeft ? x : x + pad
+                        const drawY = hasTop ? y : y + pad
+                        const drawW = CELL_SIZE - (hasLeft ? 0 : pad) - (hasRight ? 0 : pad)
+                        const drawH = CELL_SIZE - (hasTop ? 0 : pad) - (hasBottom ? 0 : pad)
+
+                        // Fill color based on type
+                        if (obs.type === 'wall') {
+                            ctx.fillStyle = isPreview ? 'rgba(156, 163, 175, 0.6)' : '#9ca3af'
+                        } else {
+                            ctx.fillStyle = isPreview ? 'rgba(209, 213, 219, 0.6)' : '#d1d5db'
+                        }
+                        ctx.fillRect(drawX, drawY, drawW, drawH)
+
+                        // Draw border only on outer edges
+                        ctx.lineWidth = 1
+                        ctx.strokeStyle = isPreview ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'
+                        ctx.beginPath()
+                        if (!hasTop) {
+                            ctx.moveTo(drawX, drawY)
+                            ctx.lineTo(drawX + drawW, drawY)
+                        }
+                        if (!hasRight) {
+                            ctx.moveTo(drawX + drawW, drawY)
+                            ctx.lineTo(drawX + drawW, drawY + drawH)
+                        }
+                        if (!hasBottom) {
+                            ctx.moveTo(drawX + drawW, drawY + drawH)
+                            ctx.lineTo(drawX, drawY + drawH)
+                        }
+                        if (!hasLeft) {
+                            ctx.moveTo(drawX, drawY + drawH)
+                            ctx.lineTo(drawX, drawY)
+                        }
+                        ctx.stroke()
+
+                        // Wall break specific visuals - show X and count on EVERY cell
+                        if (obs.type === 'wall_break' && !isPreview) {
+                            // Add crack visual on every cell
+                            ctx.beginPath()
+                            ctx.strokeStyle = '#4b5563'
+                            ctx.lineWidth = 2
+                            ctx.moveTo(x + 4, y + 4)
+                            ctx.lineTo(x + CELL_SIZE - 4, y + CELL_SIZE - 4)
+                            ctx.stroke()
+                            ctx.beginPath()
+                            ctx.moveTo(x + CELL_SIZE - 4, y + 4)
+                            ctx.lineTo(x + 4, y + CELL_SIZE - 4)
+                            ctx.stroke()
+
+                            // Draw count on every cell
+                            if (obs.count) {
+                                ctx.fillStyle = '#000000'
+                                ctx.font = 'bold 12px monospace'
+                                ctx.textAlign = 'center'
+                                ctx.textBaseline = 'middle'
+                                ctx.strokeStyle = '#d1d5db'
+                                ctx.lineWidth = 3
+                                const textY = cy + 2 // Offset down slightly for better centering
+                                ctx.strokeText(obs.count.toString(), cx, textY)
+                                ctx.fillText(obs.count.toString(), cx, textY)
+                            }
+                        }
+                    } else if (obs.type === 'tunnel') {
+                        // Tunnel: Square with rounded corners + directional arrow
+                        const size = CELL_SIZE * 0.7
+                        const offset = (CELL_SIZE - size) / 2
+                        const radius = 4
+
+                        // Filled square
+                        ctx.fillStyle = obs.color || '#10b981'
+                        if (isPreview) ctx.fillStyle = 'rgba(16, 185, 129, 0.5)'
+                        ctx.beginPath()
+                        ctx.roundRect(x + offset, y + offset, size, size, radius)
+                        ctx.fill()
+
+                        // White border
+                        ctx.strokeStyle = 'rgba(255,255,255,0.4)'
+                        ctx.lineWidth = 2
+                        ctx.stroke()
+
+                        // Draw directional arrow
+                        const dir = obs.direction || 'right'
+                        ctx.strokeStyle = '#ffffff'
+                        ctx.lineWidth = 2
+                        ctx.lineCap = 'round'
+                        ctx.lineJoin = 'round'
+
+                        const arrowLen = 6
+                        const headLen = 4
+
+                        ctx.beginPath()
+                        if (dir === 'right') {
+                            ctx.moveTo(cx - arrowLen, cy)
+                            ctx.lineTo(cx + arrowLen, cy)
+                            ctx.moveTo(cx + arrowLen - headLen, cy - headLen)
+                            ctx.lineTo(cx + arrowLen, cy)
+                            ctx.lineTo(cx + arrowLen - headLen, cy + headLen)
+                        } else if (dir === 'left') {
+                            ctx.moveTo(cx + arrowLen, cy)
+                            ctx.lineTo(cx - arrowLen, cy)
+                            ctx.moveTo(cx - arrowLen + headLen, cy - headLen)
+                            ctx.lineTo(cx - arrowLen, cy)
+                            ctx.lineTo(cx - arrowLen + headLen, cy + headLen)
+                        } else if (dir === 'up') {
+                            ctx.moveTo(cx, cy + arrowLen)
+                            ctx.lineTo(cx, cy - arrowLen)
+                            ctx.moveTo(cx - headLen, cy - arrowLen + headLen)
+                            ctx.lineTo(cx, cy - arrowLen)
+                            ctx.lineTo(cx + headLen, cy - arrowLen + headLen)
+                        } else if (dir === 'down') {
+                            ctx.moveTo(cx, cy - arrowLen)
+                            ctx.lineTo(cx, cy + arrowLen)
+                            ctx.moveTo(cx - headLen, cy + arrowLen - headLen)
+                            ctx.lineTo(cx, cy + arrowLen)
+                            ctx.lineTo(cx + headLen, cy + arrowLen - headLen)
+                        }
+                        ctx.stroke()
+                    } else if (obs.type === 'hole') {
+                        // Hole: Circle with colored outline (vs Tunnel which is filled circle)
+                        const holeRadius = CELL_SIZE / 3
+
+                        // Dark filled center
+                        ctx.fillStyle = '#1f2937'
+                        ctx.beginPath()
+                        ctx.arc(cx, cy, holeRadius, 0, Math.PI * 2)
+                        ctx.fill()
+
+                        // Colored outline ring
+                        ctx.strokeStyle = obs.color || '#ffffff'
+                        if (isPreview) ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+                        ctx.lineWidth = 3
+                        ctx.stroke()
+
+                        // Inner dark dot
+                        ctx.fillStyle = '#000000'
+                        ctx.beginPath()
+                        ctx.arc(cx, cy, 3, 0, Math.PI * 2)
+                        ctx.fill()
+                    } else {
+                        ctx.fillStyle = '#ef4444' // Red default
+                        ctx.fillRect(x + 6, y + 6, CELL_SIZE - 12, CELL_SIZE - 12)
+                    }
+                })
+            }
+
+            // Draw Existing Obstacles (skip config-only types like iced_snake and key_snake)
+            overlays.obstacles
+                .filter(obs => obs.type !== 'iced_snake' && obs.type !== 'key_snake')
+                .forEach(obs => drawObstacleItem(obs, false))
+
+            // Draw Preview Obstacle
+            if (previewObstacle) {
+                drawObstacleItem(previewObstacle, true)
+            }
+
+            // Draw Arrows (with connected paths)
+            overlays.arrows.forEach(arrow => {
+                const endX = arrow.col * CELL_SIZE + CELL_SIZE / 2
+                const endY = arrow.row * CELL_SIZE + CELL_SIZE / 2
+
+                // Draw path line if path exists
+                if (arrow.path && arrow.path.length > 1) {
+                    ctx.beginPath()
+                    ctx.strokeStyle = arrow.color
+                    ctx.lineWidth = 4
+                    ctx.lineCap = 'round'
+                    ctx.lineJoin = 'round'
+
+                    const startX = arrow.path[0].col * CELL_SIZE + CELL_SIZE / 2
+                    const startY = arrow.path[0].row * CELL_SIZE + CELL_SIZE / 2
+                    ctx.moveTo(startX, startY)
+
+                    for (let i = 1; i < arrow.path.length; i++) {
+                        const px = arrow.path[i].col * CELL_SIZE + CELL_SIZE / 2
+                        const py = arrow.path[i].row * CELL_SIZE + CELL_SIZE / 2
+                        ctx.lineTo(px, py)
+                    }
+                    ctx.stroke()
+                }
+
+                // Draw arrowhead at end cell
+                ctx.fillStyle = arrow.color
+                ctx.strokeStyle = '#000000'
+                ctx.lineWidth = 1
+                ctx.lineCap = 'round'
+                ctx.lineJoin = 'round'
+
+                ctx.save()
+                ctx.translate(endX, endY)
+
+                // Rotate based on direction
+                let rotation = 0
+                if (arrow.direction === 'right') rotation = Math.PI / 2
+                if (arrow.direction === 'down') rotation = Math.PI
+                if (arrow.direction === 'left') rotation = -Math.PI / 2
+                ctx.rotate(rotation)
+
+                ctx.beginPath()
+                // Draw filled arrowhead
+                ctx.moveTo(0, -9)  // Top tip
+                ctx.lineTo(6, 4)   // Right wing
+                ctx.lineTo(2, 4)   // Right stem
+                ctx.lineTo(2, 9)   // Right bottom
+                ctx.lineTo(-2, 9)  // Left bottom
+                ctx.lineTo(-2, 4)  // Left stem
+                ctx.lineTo(-6, 4)  // Left wing
+                ctx.closePath()
+
+                ctx.fill()
+
+                ctx.restore()
+
+                // Draw Icon for Special Types (Iced/Key/Lock) based on ID config
+                // Icons are drawn on the 2nd cell (neck) as per request
+                if (arrow.path && arrow.path.length >= 2) {
+                    // Find config
+                    const icedConfig = overlays.obstacles.find(o => o.type === 'iced_snake' && o.snakeId === arrow.id)
+                    const keyConfig = overlays.obstacles.find(o => o.type === 'key_snake' && o.keySnakeId === arrow.id)
+                    const lockConfig = overlays.obstacles.find(o => o.type === 'key_snake' && o.lockedSnakeId === arrow.id)
+
+                    if (icedConfig || keyConfig || lockConfig) {
+                        const targetCell = arrow.path[arrow.path.length - 2]
+                        const tx = targetCell.col * CELL_SIZE + CELL_SIZE / 2
+                        const ty = targetCell.row * CELL_SIZE + CELL_SIZE / 2
+
+                        ctx.save()
+                        ctx.translate(tx, ty)
+                        ctx.font = 'bold 14px serif' // Larger font
+                        ctx.textAlign = 'center'
+                        ctx.textBaseline = 'middle'
+                        // Add shadow for visibility
+                        ctx.shadowColor = 'black'
+                        ctx.shadowBlur = 4
+                        ctx.shadowOffsetX = 1
+                        ctx.shadowOffsetY = 1
+
+                        if (icedConfig) {
+                            ctx.fillStyle = '#00FFFF'
+                            ctx.fillText('I', 0, 0)
+                            ctx.restore()
+
+                            // Draw countdown on 3rd cell if path is long enough
+                            if (arrow.path.length >= 3 && icedConfig.countdown !== undefined) {
+                                const countdownCell = arrow.path[arrow.path.length - 3]
+                                const cx = countdownCell.col * CELL_SIZE + CELL_SIZE / 2
+                                const cy = countdownCell.row * CELL_SIZE + CELL_SIZE / 2
+
+                                ctx.save()
+                                ctx.translate(cx, cy)
+                                ctx.font = 'bold 14px monospace'
+                                ctx.textAlign = 'center'
+                                ctx.textBaseline = 'middle'
+                                ctx.shadowColor = 'black'
+                                ctx.shadowBlur = 3
+                                ctx.fillStyle = '#00FFFF'
+                                ctx.fillText(icedConfig.countdown.toString(), 0, 0)
+                                ctx.restore()
+                            }
+                        } else if (keyConfig) {
+                            ctx.fillStyle = '#FFD700'
+                            ctx.fillText('K', 0, 0)
+                            ctx.restore()
+                        } else if (lockConfig) {
+                            ctx.fillStyle = '#FFD700'
+                            ctx.fillText('L', 0, 0)
+                            ctx.restore()
+                        }
+                    }
+                }
+            })
+
+            // Draw Preview Path
+            if (previewPath && previewPath.length > 0) {
+                // Highlight cells - More opaque purple
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.5)' // Increased opacity (0.3 -> 0.5)
+                previewPath.forEach(cell => {
+                    const x = cell.col * CELL_SIZE
+                    const y = cell.row * CELL_SIZE
+                    ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
+                })
+
+                // Draw connecting line
+                if (previewPath.length > 1) {
+                    ctx.beginPath()
+                    ctx.strokeStyle = '#000000ff' // Purple-500
+                    ctx.lineWidth = 4 // Thicker (2 -> 4)
+                    ctx.lineCap = 'round'
+                    ctx.lineJoin = 'round'
+
+                    const startX = previewPath[0].col * CELL_SIZE + CELL_SIZE / 2
+                    const startY = previewPath[0].row * CELL_SIZE + CELL_SIZE / 2
+                    ctx.moveTo(startX, startY)
+
+                    for (let i = 1; i < previewPath.length; i++) {
+                        const px = previewPath[i].col * CELL_SIZE + CELL_SIZE / 2
+                        const py = previewPath[i].row * CELL_SIZE + CELL_SIZE / 2
+                        ctx.lineTo(px, py)
+                    }
+                    ctx.stroke()
+
+                    // Draw dots at nodes for clarity
+                    ctx.fillStyle = '#000000ff'
+                    previewPath.forEach(cell => {
+                        const px = cell.col * CELL_SIZE + CELL_SIZE / 2
+                        const py = cell.row * CELL_SIZE + CELL_SIZE / 2
+                        ctx.beginPath()
+                        ctx.arc(px, py, 2, 0, Math.PI * 2)
+                        ctx.fill()
+                    })
+                }
+            }
+        }
+
         ctx.restore()
-    }, [gridData, rows, cols, zoom, pan, canvasSize, shapeStart, shapePreview, isDrawing, currentTool, currentShape])
+    }, [gridData, rows, cols, zoom, pan, currentTool, isDrawing, shapeStart, shapePreview, currentShape, overlays, readOnlyGrid, previewPath, previewObstacle])
 
     // Get grid coordinates from mouse event
     const getGridCoords = (e: React.MouseEvent) => {
@@ -186,6 +552,37 @@ export function GridCanvas({ gridData, onCellToggle, onBulkCellToggle, rows, col
         return { row, col }
     }
 
+    // Handle right-click context menu
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault()
+        if (!overlays || !onItemContextMenu) return
+
+        const coords = getGridCoords(e)
+        if (!coords) return
+
+        const { row, col } = coords
+
+        // Check if clicked on an arrow (including path cells)
+        const arrowIndex = overlays.arrows.findIndex(a =>
+            (a.row === row && a.col === col) ||
+            a.path?.some(p => p.row === row && p.col === col)
+        )
+        if (arrowIndex !== -1) {
+            onItemContextMenu(e, { type: 'arrow', data: overlays.arrows[arrowIndex], index: arrowIndex })
+            return
+        }
+
+        // Check if clicked on an obstacle (including multi-cell obstacles)
+        const obstacleIndex = overlays.obstacles.findIndex(o =>
+            (o.row === row && o.col === col) ||
+            o.cells?.some(c => c.row === row && c.col === col)
+        )
+        if (obstacleIndex !== -1) {
+            onItemContextMenu(e, { type: 'obstacle', data: overlays.obstacles[obstacleIndex], index: obstacleIndex })
+            return
+        }
+    }
+
     const handleMouseDown = (e: React.MouseEvent) => {
         const coords = getGridCoords(e)
 
@@ -199,7 +596,8 @@ export function GridCanvas({ gridData, onCellToggle, onBulkCellToggle, rows, col
         if (!coords || coords.row < 0 || coords.row >= rows || coords.col < 0 || coords.col >= cols) return
 
         if (e.button === 2) {
-            // Right click = FORCE ERASE
+            // Right click - only erase if NOT readOnlyGrid (readOnlyGrid uses context menu)
+            if (readOnlyGrid) return // Let context menu handle it
             e.preventDefault()
             setIsDrawing(true)
             // Just toggle directly to false
@@ -313,12 +711,60 @@ export function GridCanvas({ gridData, onCellToggle, onBulkCellToggle, rows, col
 
     return (
         <div className="flex flex-col h-full bg-gray-900">
-            <div className="flex items-center gap-4 p-3 bg-gray-800 border-b border-gray-700">
-                <button onClick={() => setZoom(prev => Math.min(5, prev * 1.2))}
-                    className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">+</button>
-                <span className="text-sm text-gray-400">{Math.round(zoom * 100)}%</span>
-                <button onClick={() => setZoom(prev => Math.max(0.1, prev * 0.8))}
-                    className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600">-</button>
+            <div className="flex items-center gap-3 px-3 py-1.5 bg-gray-800 border-b border-gray-700 h-10">
+                <span className="text-xs font-medium text-gray-400">Zoom</span>
+
+                {/* Slider */}
+                <input
+                    type="range"
+                    min="10"
+                    max="500"
+                    value={Math.round(zoom * 100)}
+                    onChange={(e) => setZoom(Number(e.target.value) / 100)}
+                    className="w-24 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500 hover:accent-purple-400"
+                />
+
+                {/* Custom Spinner Input Cluster */}
+                <div className="flex items-center bg-gray-900 border border-gray-600 hover:border-gray-500 focus-within:border-purple-500 rounded px-1.5 py-0.5 transition-colors group">
+                    <input
+                        id="zoom-input"
+                        type="number"
+                        min="10"
+                        max="500"
+                        value={Math.round(zoom * 100)}
+                        onChange={(e) => {
+                            const val = Math.max(10, Math.min(500, Number(e.target.value) || 100))
+                            setZoom(val / 100)
+                        }}
+                        className="w-7 bg-transparent text-xs text-left text-white font-medium focus:outline-none appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <span className="text-xs text-gray-500 select-none mr-1">%</span>
+
+                    {/* Custom Spinners */}
+                    <div className="flex flex-col border-l border-gray-700 pl-1 ml-1 h-5 justify-between">
+                        <button
+                            onClick={() => setZoom(prev => Math.min(5, prev + 0.1))}
+                            className="h-2 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded-sm transition-colors"
+                        >
+                            <ChevronUp size={10} />
+                        </button>
+                        <button
+                            onClick={() => setZoom(prev => Math.max(0.1, prev - 0.1))}
+                            className="h-2 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded-sm transition-colors"
+                        >
+                            <ChevronDown size={10} />
+                        </button>
+                    </div>
+                </div>
+
+                <style>{`
+                    #zoom-input { -moz-appearance: textfield; }
+                    #zoom-input::-webkit-inner-spin-button,
+                    #zoom-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+                `}</style>
+
+
+                {/* Reset Button */}
                 <button onClick={() => {
                     setZoom(1)
                     const gridWidth = cols * CELL_SIZE
@@ -328,7 +774,9 @@ export function GridCanvas({ gridData, onCellToggle, onBulkCellToggle, rows, col
                         y: (canvasSize.height - gridHeight) / 2
                     })
                 }}
-                    className="px-3 py-1 bg-gray-700 rounded hover:bg-gray-600 text-xs">Reset</button>
+                    className="ml-auto px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-gray-300 transition-colors">
+                    Reset
+                </button>
             </div>
             <div ref={containerRef} className="flex-1 overflow-hidden">
                 <canvas
@@ -341,7 +789,7 @@ export function GridCanvas({ gridData, onCellToggle, onBulkCellToggle, rows, col
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseUp}
                     onWheel={handleWheel}
-                    onContextMenu={(e) => e.preventDefault()}
+                    onContextMenu={handleContextMenu}
                 />
             </div>
         </div>
