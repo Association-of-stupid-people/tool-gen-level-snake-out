@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import { ChevronUp, ChevronDown } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
+import { useNotification } from '../contexts/NotificationContext'
 
 interface GridCanvasProps {
     gridData: boolean[][]
@@ -17,6 +18,7 @@ interface GridCanvasProps {
     previewPath?: { row: number, col: number }[]
     previewObstacle?: { cells: { row: number, col: number }[], type: string, color?: string }
     onItemContextMenu?: (e: React.MouseEvent, item: { type: 'arrow' | 'obstacle', data: any, index: number }) => void
+    onValidate?: () => Promise<{ is_solvable: boolean, stuck_count?: number }>
 }
 
 const CELL_SIZE = 25
@@ -33,8 +35,10 @@ export function GridCanvas({
     overlays,
     previewPath,
     previewObstacle,
-    onItemContextMenu
+    onItemContextMenu,
+    onValidate
 }: GridCanvasProps) {
+    const { addNotification } = useNotification()
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const [zoom, setZoom] = useState(1)
@@ -42,14 +46,32 @@ export function GridCanvas({
     const [isDragging, setIsDragging] = useState(false)
     const [isDrawing, setIsDrawing] = useState(false)
     const [lastPos, setLastPos] = useState({ x: 0, y: 0 })
-    const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
+    const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+    const hasCenteredRef = useRef(false)
 
     // Shape drawing state
     const [shapeStart, setShapeStart] = useState<{ row: number; col: number } | null>(null)
     const [shapePreview, setShapePreview] = useState<{ row: number; col: number } | null>(null)
 
-    // Resize canvas to fill container
+    // Validation State
+    const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'success' | 'stuck'>('idle')
+    const prevOverlaysRef = useRef(overlays)
+
+    // Reset validation state on overlay content change (not just on mount)
     useEffect(() => {
+        // Skip if overlays didn't actually change (same reference or both undefined)
+        if (prevOverlaysRef.current === overlays) return
+        prevOverlaysRef.current = overlays
+
+        // Only reset if we have overlays (i.e., Generator mode)
+        if (overlays) {
+            setValidationStatus('idle')
+        }
+    }, [overlays])
+
+    // Resize canvas to fill container
+    // Resize canvas to fill container
+    useLayoutEffect(() => {
         const updateSize = () => {
             if (containerRef.current) {
                 const rect = containerRef.current.getBoundingClientRect()
@@ -62,15 +84,24 @@ export function GridCanvas({
         return () => window.removeEventListener('resize', updateSize)
     }, [])
 
-    // Center grid on load
+    // Center grid on load - only once per mount, not on container resize
     useEffect(() => {
+        // Skip if already centered or canvas not measured yet
+        if (hasCenteredRef.current || canvasSize.width === 0) return
+
         const gridWidth = cols * CELL_SIZE
         const gridHeight = rows * CELL_SIZE
         setPan({
             x: (canvasSize.width - gridWidth) / 2,
             y: (canvasSize.height - gridHeight) / 2
         })
-    }, [rows, cols, canvasSize])
+        hasCenteredRef.current = true
+    }, [canvasSize, cols, rows])
+
+    // Reset centering flag when grid dimensions change
+    useEffect(() => {
+        hasCenteredRef.current = false
+    }, [rows, cols])
 
     // Helper: Check if cell is in shape preview
     const isInShapePreview = (r: number, c: number, start: { row: number, col: number }, end: { row: number, col: number }, shape: string) => {
@@ -757,11 +788,41 @@ export function GridCanvas({
                     </div>
                 </div>
 
-                <style>{`
-                    #zoom-input { -moz-appearance: textfield; }
-                    #zoom-input::-webkit-inner-spin-button,
-                    #zoom-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-                `}</style>
+
+                <div className="flex-1" />
+
+                {/* Validate Button - always rendered but invisible when not in Generator mode */}
+                <button
+                    onClick={async () => {
+                        if (!onValidate || !overlays) return
+                        if (validationStatus === 'loading') return
+                        setValidationStatus('loading')
+                        try {
+                            const result = await onValidate()
+                            if (result.is_solvable) {
+                                setValidationStatus('success')
+                                addNotification('success', 'Level is solvable!')
+                            } else {
+                                setValidationStatus('stuck')
+                                addNotification('error', `Level is stuck!`)
+                            }
+                        } catch (e) {
+                            setValidationStatus('idle')
+                            addNotification('error', 'Validation failed')
+                        }
+                    }}
+                    className={`mr-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-gray-300 transition-colors flex items-center gap-2 ${!(onValidate && overlays) ? 'invisible' : ''}`}
+                >
+                    Validate
+                    {validationStatus === 'loading' ? (
+                        <Loader2 size={10} className="animate-spin text-gray-400" />
+                    ) : (
+                        <div className={`w-2.5 h-2.5 rounded-full border border-gray-500/50 ${validationStatus === 'success' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' :
+                            validationStatus === 'stuck' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' :
+                                'bg-gray-500' // idle
+                            }`} />
+                    )}
+                </button>
 
 
                 {/* Reset Button */}
@@ -774,24 +835,26 @@ export function GridCanvas({
                         y: (canvasSize.height - gridHeight) / 2
                     })
                 }}
-                    className="ml-auto px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-gray-300 transition-colors">
+                    className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-gray-300 transition-colors flex items-center justify-center">
                     Reset
                 </button>
             </div>
             <div ref={containerRef} className="flex-1 overflow-hidden">
-                <canvas
-                    ref={canvasRef}
-                    width={canvasSize.width}
-                    height={canvasSize.height}
-                    className="cursor-crosshair w-full h-full"
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseUp}
-                    onWheel={handleWheel}
-                    onContextMenu={handleContextMenu}
-                />
+                {canvasSize.width > 0 && (
+                    <canvas
+                        ref={canvasRef}
+                        width={canvasSize.width}
+                        height={canvasSize.height}
+                        className="cursor-crosshair w-full h-full"
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                        onWheel={handleWheel}
+                        onContextMenu={handleContextMenu}
+                    />
+                )}
             </div>
-        </div>
+        </div >
     )
 }

@@ -66,7 +66,6 @@ function ColorDropdown({ color, palette, onChange }: ColorDropdownProps) {
 export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerating, jsonInput = '', setJsonInput = () => { }, onObstacleTypeUsed, onObstacleUpdate, onObstacleDelete, nextItemId, setNextItemId, onDataUpdate, onObstacleAdd }: LeftSidebarProps) {
     const {
         gridSize, setGridSize,
-        backgroundColor, setBackgroundColor,
         snakePalette, setSnakePalette,
         filenamePrefix, setFilenamePrefix,
         filenameSuffix, setFilenameSuffix,
@@ -98,6 +97,54 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
     }
 
     const [selectedObstacleType, setSelectedObstacleType] = useState<ObstacleType>('wall')
+    const [distributionStrategy, setDistributionStrategy] = useState<string>('SMART_DYNAMIC')
+
+    // Strategy default configs
+    const STRATEGY_DEFAULTS: Record<string, Record<string, any>> = {
+        SMART_DYNAMIC: {
+            depth_priority: 0.7,
+            pool_size_percent: 0.25,
+        },
+        RANDOM_ADAPTIVE: {
+            prefer_edges: false,
+            avoid_corners: false,
+        },
+        EDGE_HUGGER: {
+            edge_distance_max: 2,
+            corner_priority: true,
+            wall_follow_strength: 0.8,
+        },
+        MAX_CLUMP: {
+            min_area_size: 4,
+            expansion_rate: 0.6,
+            avoid_edges: false,
+        },
+        SPIRAL_FILL: {
+            direction: 'random',
+            start_from: 'random',
+            tightness: 0.7,
+        },
+        SYMMETRICAL: {
+            symmetry_type: 'random',
+            strictness: 0.8,
+            fallback_strategy: 'random',
+        },
+    }
+
+    // Strategy config state - starts with SMART_DYNAMIC defaults
+    const [strategyConfig, setStrategyConfig] = useState<Record<string, any>>(
+        STRATEGY_DEFAULTS.SMART_DYNAMIC
+    )
+
+    // Reset config when strategy changes
+    useEffect(() => {
+        setStrategyConfig(STRATEGY_DEFAULTS[distributionStrategy] || {})
+    }, [distributionStrategy])
+
+    const updateConfig = (key: string, value: any) => {
+        setStrategyConfig(prev => ({ ...prev, [key]: value }))
+    }
+
     // const [jsonInput, setJsonInput] = useState('') // Lifted to App
     const [arrowCount, setArrowCount] = useState(10)
     // Removed local state for length/bends ranges in favor of SettingsContext
@@ -199,7 +246,9 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                         maxBends: bendsRange.max,
                         obstacles,
                         palette: snakePalette,
-                        customInput: jsonInput
+                        customInput: jsonInput,
+                        distributionStrategy,
+                        strategyConfig
                     })
                     return;
                 } catch (e) {
@@ -215,7 +264,9 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                 minBends: bendsRange.min,
                 maxBends: bendsRange.max,
                 obstacles,
-                palette: snakePalette
+                palette: snakePalette,
+                distributionStrategy,
+                strategyConfig
             })
         }
     }
@@ -261,7 +312,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
                 {activePanel === 'panel1' && (
                     <div className="text-center text-gray-500 mt-4">
                         <p className="text-sm">Select tools from the right sidebar to draw on the grid.</p>
@@ -303,9 +354,11 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             </div>
                         </div>
 
+
+
                         <div className="bg-gray-700/50 rounded-xl p-4 space-y-4">
                             <h3 className="text-sm font-semibold text-white border-b border-gray-600 pb-2 flex items-center gap-2">
-                                <Settings size={16} /> Basic Settings
+                                <Package size={16} /> Distribution Strategy
                             </h3>
 
                             <div className="flex items-center justify-between gap-4">
@@ -316,9 +369,227 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     max="2000"
                                     value={arrowCount}
                                     onChange={e => setArrowCount(Math.max(1, parseInt(e.target.value) || 0))}
-                                    className="w-32 bg-gray-900/50 border border-gray-600/50 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500 transition-all font-mono text-left"
+                                    className="w-full bg-gray-900/50 border border-gray-600/50 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500 transition-all font-mono text-left"
                                 />
                             </div>
+
+                            <div className="relative">
+                                <select
+                                    value={distributionStrategy}
+                                    onChange={(e) => setDistributionStrategy(e.target.value)}
+                                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
+                                >
+                                    <option value="SMART_DYNAMIC">Smart Dynamic</option>
+                                    <option value="RANDOM_ADAPTIVE">Random Adaptive</option>
+                                    <option value="EDGE_HUGGER">Edge Hugger</option>
+                                    <option value="MAX_CLUMP">Max Clump</option>
+                                    <option value="SPIRAL_FILL">Spiral Fill</option>
+                                    <option value="SYMMETRICAL">Symmetrical</option>
+                                </select>
+                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                            </div>
+
+                            {/* Strategy Config */}
+                            {distributionStrategy === 'SMART_DYNAMIC' && (
+                                <div className="space-y-3 pt-3 border-t border-gray-600/50">
+                                    <div className="space-y-1">
+                                        <label className="text-xs text-gray-400">Depth Priority ({strategyConfig.depth_priority})</label>
+                                        <input
+                                            type="range" min="0" max="1" step="0.1"
+                                            value={strategyConfig.depth_priority}
+                                            onChange={(e) => updateConfig('depth_priority', parseFloat(e.target.value))}
+                                            className="w-full accent-purple-500"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs text-gray-400">Pool Size % ({strategyConfig.pool_size_percent})</label>
+                                        <input
+                                            type="range" min="0.1" max="0.5" step="0.05"
+                                            value={strategyConfig.pool_size_percent}
+                                            onChange={(e) => updateConfig('pool_size_percent', parseFloat(e.target.value))}
+                                            className="w-full accent-purple-500"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {distributionStrategy === 'RANDOM_ADAPTIVE' && (
+                                <div className="space-y-3 pt-3 border-t border-gray-600/50">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Prefer Edges</label>
+                                        <button
+                                            onClick={() => updateConfig('prefer_edges', !strategyConfig.prefer_edges)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${strategyConfig.prefer_edges ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${strategyConfig.prefer_edges ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Avoid Corners</label>
+                                        <button
+                                            onClick={() => updateConfig('avoid_corners', !strategyConfig.avoid_corners)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${strategyConfig.avoid_corners ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${strategyConfig.avoid_corners ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {distributionStrategy === 'EDGE_HUGGER' && (
+                                <div className="space-y-3 pt-3 border-t border-gray-600/50">
+                                    <div className="space-y-1">
+                                        <label className="text-xs text-gray-400">Wall Follow Strength ({strategyConfig.wall_follow_strength})</label>
+                                        <input
+                                            type="range" min="0" max="1" step="0.1"
+                                            value={strategyConfig.wall_follow_strength}
+                                            onChange={(e) => updateConfig('wall_follow_strength', parseFloat(e.target.value))}
+                                            className="w-full accent-purple-500"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Edge Distance Max</label>
+                                        <input
+                                            type="number" min="0" max="5"
+                                            value={strategyConfig.edge_distance_max}
+                                            onChange={(e) => updateConfig('edge_distance_max', parseInt(e.target.value) || 0)}
+                                            className="w-16 bg-gray-900/50 text-white text-xs px-2 py-1 rounded border border-gray-600 text-left"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Corner Priority</label>
+                                        <button
+                                            onClick={() => updateConfig('corner_priority', !strategyConfig.corner_priority)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${strategyConfig.corner_priority ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${strategyConfig.corner_priority ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+
+                                </div>
+                            )}
+
+                            {distributionStrategy === 'MAX_CLUMP' && (
+                                <div className="space-y-3 pt-3 border-t border-gray-600/50">
+                                    <div className="space-y-1">
+                                        <label className="text-xs text-gray-400">Expansion Rate ({strategyConfig.expansion_rate})</label>
+                                        <input
+                                            type="range" min="0" max="1" step="0.1"
+                                            value={strategyConfig.expansion_rate}
+                                            onChange={(e) => updateConfig('expansion_rate', parseFloat(e.target.value))}
+                                            className="w-full accent-purple-500"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Min Area Size</label>
+                                        <input
+                                            type="number" min="1" max="10"
+                                            value={strategyConfig.min_area_size}
+                                            onChange={(e) => updateConfig('min_area_size', parseInt(e.target.value) || 1)}
+                                            className="w-16 bg-gray-900/50 text-white text-xs px-2 py-1 rounded border border-gray-600 text-left"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Avoid Edges</label>
+                                        <button
+                                            onClick={() => updateConfig('avoid_edges', !strategyConfig.avoid_edges)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${strategyConfig.avoid_edges ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${strategyConfig.avoid_edges ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {distributionStrategy === 'SPIRAL_FILL' && (
+                                <div className="space-y-3 pt-3 border-t border-gray-600/50">
+                                    <div className="space-y-1">
+                                        <label className="text-xs text-gray-400">Tightness ({strategyConfig.tightness})</label>
+                                        <input
+                                            type="range" min="0" max="1" step="0.1"
+                                            value={strategyConfig.tightness}
+                                            onChange={(e) => updateConfig('tightness', parseFloat(e.target.value))}
+                                            className="w-full accent-purple-500"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Direction</label>
+                                        <div className="relative">
+                                            <select
+                                                value={strategyConfig.direction}
+                                                onChange={(e) => updateConfig('direction', e.target.value)}
+                                                className="w-32 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
+                                            >
+                                                <option value="random">Random</option>
+                                                <option value="clockwise">Clockwise</option>
+                                                <option value="counter_clockwise">Counter CW</option>
+                                            </select>
+                                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Start From</label>
+                                        <div className="relative">
+                                            <select
+                                                value={strategyConfig.start_from}
+                                                onChange={(e) => updateConfig('start_from', e.target.value)}
+                                                className="w-32 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
+                                            >
+                                                <option value="random">Random</option>
+                                                <option value="center">Center</option>
+                                                <option value="corner">Corner</option>
+                                            </select>
+                                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {distributionStrategy === 'SYMMETRICAL' && (
+                                <div className="space-y-3 pt-3 border-t border-gray-600/50">
+                                    <div className="space-y-1">
+                                        <label className="text-xs text-gray-400">Strictness ({strategyConfig.strictness})</label>
+                                        <input
+                                            type="range" min="0" max="1" step="0.1"
+                                            value={strategyConfig.strictness}
+                                            onChange={(e) => updateConfig('strictness', parseFloat(e.target.value))}
+                                            className="w-full accent-purple-500"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Symmetry Type</label>
+                                        <div className="relative">
+                                            <select
+                                                value={strategyConfig.symmetry_type}
+                                                onChange={(e) => updateConfig('symmetry_type', e.target.value)}
+                                                className="w-32 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
+                                            >
+                                                <option value="random">Random</option>
+                                                <option value="horizontal">Horizontal</option>
+                                                <option value="vertical">Vertical</option>
+                                                <option value="both">Both</option>
+                                                <option value="radial">Radial</option>
+                                            </select>
+                                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-400">Fallback</label>
+                                        <div className="relative">
+                                            <select
+                                                value={strategyConfig.fallback_strategy}
+                                                onChange={(e) => updateConfig('fallback_strategy', e.target.value)}
+                                                className="w-32 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
+                                            >
+                                                <option value="random">Random</option>
+                                                <option value="smart_dynamic">Smart Dynamic</option>
+                                                <option value="edge_hugger">Edge Hugger</option>
+                                            </select>
+                                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="bg-gray-700/50 rounded-xl p-4 space-y-4">
@@ -402,7 +673,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         <p className="text-xs text-gray-500">No obstacles added yet</p>
                                     </div>
                                 )}
-                                {obstacles.map((obs, index) => (
+                                {obstacles.map((obs) => (
                                     <div key={obs.id} className="bg-gray-800 rounded-lg p-3 border border-gray-700 shadow-sm space-y-3 hover:border-gray-500 transition-colors">
                                         <div className="flex flex-col gap-2 bg-gray-900/50 -mx-3 -mt-3 p-2 px-3 rounded-t-lg border-b border-gray-700">
                                             <div className="flex justify-between items-center w-full">

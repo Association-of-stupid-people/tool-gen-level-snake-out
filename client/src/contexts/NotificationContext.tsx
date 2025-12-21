@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import { CheckCircle, AlertCircle, Info, X } from 'lucide-react'
+import { CheckCircle, AlertCircle, Info, X, AlertTriangle } from 'lucide-react'
 
-export type NotificationType = 'success' | 'error' | 'info'
+export type NotificationType = 'success' | 'error' | 'info' | 'warning'
 
 export interface Notification {
     id: string
@@ -69,13 +69,15 @@ function NotificationItem({ notification, onClose }: { notification: Notificatio
     const bgColors = {
         success: 'bg-green-600',
         error: 'bg-red-600',
-        info: 'bg-blue-600'
+        info: 'bg-blue-600',
+        warning: 'bg-yellow-600'
     }
 
     const icons = {
         success: <CheckCircle size={20} className="text-white" />,
         error: <AlertCircle size={20} className="text-white" />,
-        info: <Info size={20} className="text-white" />
+        info: <Info size={20} className="text-white" />,
+        warning: <AlertTriangle size={20} className="text-white" />
     }
 
     return (

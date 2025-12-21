@@ -28,7 +28,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run the server
-python server/app.py
+python server/run.py
 ```
 *The server will start at `http://localhost:5000`*
 

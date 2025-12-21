@@ -24,6 +24,7 @@ interface GeneratorPanelProps {
     onObstacleDelete?: (row: number, col: number) => void
     nextItemId: number
     setNextItemId: React.Dispatch<React.SetStateAction<number>>
+    onValidate?: () => Promise<{ is_solvable: boolean, stuck_count?: number }>
 }
 
 function ColorDropdown({ color, palette, onChange }: { color: string, palette: string[], onChange: (color: string) => void }) {
@@ -78,7 +79,8 @@ export function GeneratorPanel({
     onObstacleUpdate,
     onObstacleDelete,
     nextItemId,
-    setNextItemId
+    setNextItemId,
+    onValidate
 }: GeneratorPanelProps) {
     const { restrictDrawToColored, snakePalette, lengthRange, bendsRange } = useSettings()
 
@@ -477,6 +479,7 @@ export function GeneratorPanel({
                         index: item.index
                     })
                 }}
+                onValidate={onValidate}
             />
 
             {/* Context Menu */}

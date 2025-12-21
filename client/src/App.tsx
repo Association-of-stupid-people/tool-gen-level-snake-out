@@ -94,6 +94,9 @@ function App() {
 
       // Pass the new obstacles list as JSON
       formData.append('obstacles', JSON.stringify(params.obstacles))
+      if (params.distributionStrategy) {
+        formData.append('strategy', params.distributionStrategy)
+      }
 
       // Shape Input
       formData.append('shape_input', 'RECTANGLE_SHAPE')
@@ -103,7 +106,7 @@ function App() {
         formData.append('custom_grid', params.customInput)
       }
 
-      const response = await fetch('http://localhost:5000/api/generate', {
+      const response = await fetch('/api/generate', {
         method: 'POST',
         body: formData,
       })
@@ -114,13 +117,50 @@ function App() {
       } else {
         setGeneratedImage(data.base64_image)
         setLevelJson(data.level_json)
-        addNotification('success', 'Level generated successfully!')
+
+        // Auto-import to grid
+        if (data.level_json) {
+          handleImportJson(JSON.stringify(data.level_json))
+        }
+
+        if (data.is_solvable === false) {
+          addNotification('warning', `Level is STUCK! ${data.stuck_count} snakes cannot exit.`)
+        } else {
+          addNotification('success', 'Level generated successfully!')
+        }
       }
     } catch (error) {
       console.error('Generation failed:', error)
       addNotification('error', 'Failed to connect to server')
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  const handleValidateLevel = async () => {
+    try {
+      const response = await fetch('/api/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rows: gridSize.height,
+          cols: gridSize.width,
+          snakes: generatorOverlays.arrows,
+          obstacles: generatorOverlays.obstacles
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Validation request failed')
+      }
+
+      const result = await response.json()
+      return result
+    } catch (error) {
+      console.error('Validation error:', error)
+      throw error
     }
   }
 
@@ -474,6 +514,7 @@ function App() {
               onObstacleDelete={(row, col) => obstacleDeleteCallback.current?.(row, col)}
               nextItemId={nextItemId}
               setNextItemId={setNextItemId}
+              onValidate={handleValidateLevel}
             />
           )}
         </div>

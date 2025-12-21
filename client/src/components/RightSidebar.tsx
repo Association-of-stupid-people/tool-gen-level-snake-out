@@ -290,22 +290,35 @@ export function RightSidebar({
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6">
+                <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
 
                     {/* Tools Tab Content */}
                     <div className={activeTab === 'tools' ? 'block animate-in fade-in duration-300' : 'hidden'}>
                         {/* Tool Selection - Matching Editor Tools Layout */}
-                        <div className="flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl">
+                        <div className="relative flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl isolate">
+                            {/* Sliding Background */}
+                            {generatorTool !== 'none' && (() => {
+                                const toolIndex = generatorTool === 'arrow' ? 0 : generatorTool === 'obstacle' ? 1 : 2
+                                return (
+                                    <div
+                                        className="absolute top-1.5 bottom-1.5 bg-purple-600 rounded-lg shadow-lg transition-all duration-300 ease-out z-0"
+                                        style={{
+                                            width: 'calc((100% - 12px - 16px) / 3)',
+                                            left: `calc(6px + ${toolIndex} * ((100% - 12px - 16px) / 3 + 8px))`
+                                        }}
+                                    />
+                                )
+                            })()}
                             {generatorTools.filter(t => t.id !== 'none').map(tool => (
                                 <button
                                     key={tool.id}
                                     onClick={() => setGeneratorTool?.(generatorTool === tool.id ? 'none' : tool.id)}
                                     className={`
-                                        flex-1 flex flex-col items-center justify-center py-3 rounded-lg gap-1.5
-                                        transition-all duration-200
+                                        relative z-10 flex-1 flex flex-col items-center justify-center py-3 rounded-lg gap-1.5
+                                        transition-colors duration-200
                                         ${generatorTool === tool.id
-                                            ? 'bg-purple-600 text-white shadow-lg'
-                                            : 'text-gray-400 hover:text-white hover:bg-gray-600'
+                                            ? 'text-white'
+                                            : 'text-gray-400 hover:text-white'
                                         }
                                     `}
                                 >
@@ -317,7 +330,7 @@ export function RightSidebar({
 
                         {/* Contextual Settings */}
                         {generatorTool === 'arrow' && generatorSettings && setGeneratorSettings && (
-                            <div className="bg-gray-700/50 rounded-xl p-4 mb-6 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="bg-gray-700/50 rounded-xl p-4 mb-6">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
                                     <ArrowUpRight size={16} /> Arrow Settings
                                 </h3>
@@ -336,7 +349,7 @@ export function RightSidebar({
                         )}
 
                         {generatorTool === 'obstacle' && generatorSettings && setGeneratorSettings && generatorOverlays && (
-                            <div className="bg-gray-700/50 rounded-xl p-4 mb-6 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="bg-gray-700/50 rounded-xl p-4 mb-6">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
                                     <Ban size={16} /> Obstacle Settings
                                 </h3>
@@ -370,7 +383,7 @@ export function RightSidebar({
 
                                     {/* Color Selection for Tunnel & Hole */}
                                     {(generatorSettings.obstacleType === 'tunnel' || generatorSettings.obstacleType === 'hole') && (
-                                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="space-y-2">
                                             <label className="text-xs text-gray-400 block mb-1">
                                                 {generatorSettings.obstacleType === 'tunnel' ? 'Tunnel Color' : 'Hole Color'}
                                             </label>
@@ -447,7 +460,7 @@ export function RightSidebar({
 
                                     {/* Wall Break Countdown Input */}
                                     {generatorSettings.obstacleType === 'wall_break' && (
-                                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="space-y-2">
                                             <label className="text-xs text-gray-400 block mb-1">Break Countdown</label>
                                             <input
                                                 type="number"
@@ -622,13 +635,26 @@ export function RightSidebar({
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
 
                 {/* Tools Content */}
                 <div> {/* Wrapper to match structure roughly, though not strictly needed for animation if always visible */}
 
                     {/* Tool Selection */}
-                    <div className="flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl">
+                    <div className="relative flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl isolate">
+                        {/* Sliding Background */}
+                        {(() => {
+                            const toolIndex = currentTool === 'pen' ? 0 : currentTool === 'eraser' ? 1 : 2
+                            return (
+                                <div
+                                    className="absolute top-1.5 bottom-1.5 bg-purple-600 rounded-lg shadow-lg transition-all duration-300 ease-out z-0"
+                                    style={{
+                                        width: 'calc((100% - 12px - 16px) / 3)',
+                                        left: `calc(6px + ${toolIndex} * ((100% - 12px - 16px) / 3 + 8px))`
+                                    }}
+                                />
+                            )
+                        })()}
                         {tools.map(tool => {
                             const Icon = tool.icon
                             const isActive = currentTool === tool.id
@@ -637,11 +663,11 @@ export function RightSidebar({
                                     key={tool.id}
                                     onClick={() => onToolChange(tool.id)}
                                     className={`
-                                        flex-1 flex flex-col items-center justify-center py-3 rounded-lg gap-1.5
-                                        transition-all duration-200
+                                        relative z-10 flex-1 flex flex-col items-center justify-center py-3 rounded-lg gap-1.5
+                                        transition-colors duration-200
                                         ${isActive
-                                            ? 'bg-purple-600 text-white shadow-lg'
-                                            : 'text-gray-400 hover:text-white hover:bg-gray-600'
+                                            ? 'text-white'
+                                            : 'text-gray-400 hover:text-white'
                                         }
                                     `}
                                 >
