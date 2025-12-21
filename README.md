@@ -1,189 +1,87 @@
-# 🐍 Arrow Level Generator - Snake Game
+# Tool Gen Level Snake Out 🐍
 
-Web tool để tự động generate level cho game Snake. Được thiết kế cho Game Designer có thể dễ dàng tạo và export level configuration.
+A powerful level generator tool for a Snake game variant, featuring a visual grid editor, parametric generation, and instant preview. Built with a React frontend and Python Flask backend.
 
-## ✨ Tính năng
+## 🏗 Architecture
 
-### 🎲 Generate Level (Tự động)
-- **Generate tự động**: Tạo level với số lượng arrow (snake) tùy chỉnh
-- **Hình dạng đa dạng**: Trái tim ❤️, Mặt cười 😀, Kim cương ⭐, Hình chữ nhật 📦
-- **Upload ảnh**: Sử dụng ảnh của bạn làm hình dạng level
-- **Tùy chỉnh độ khó**:
-  - Độ dài arrow (Min/Max)
-  - Số lần gấp khúc (Min/Max bends)
-- **Chướng ngại vật**:
-  - 🧱 Wall (với counter)
-  - 🕳️ Hole (lỗ thoát)
-  - 🌀 Tunnel (cổng dịch chuyển)
-- **Export JSON**: Tải về file JSON với format chuẩn (Level{X}Data.json)
+The project is structured as a modern Client-Server application:
 
-### ✏️ Custom Level (Vẽ tay)
-- **Vẽ snake**: Kéo chuột để vẽ đường đi của snake
-- **Thêm obstacles**: Wall, Hole, Tunnel
-- **Keyboard shortcuts**: S (Snake), W (Wall), H (Hole), T (Tunnel)
-- **Load generated level**: Import level từ tab Generate để chỉnh sửa
-- **Export JSON**: Tải về level đã vẽ (Level{X}Data.json)
+-   **Backend (`/server`)**: Python Flask API handling core logic, image processing, and generation algorithms.
+-   **Frontend (`/client`)**: React + Vite application providing a rich user interface for configuration and visualization.
 
-## 🚀 Deploy lên Vercel
+## 🚀 Getting Started
 
 ### Prerequisites
-- Tài khoản GitHub
-- Tài khoản Vercel (miễn phí tại [vercel.com](https://vercel.com))
-- Git đã được cài đặt
+-   **Node.js** (v18+ recommended)
+-   **Python** (v3.8+)
+-   **pip**
 
-### Bước 1: Push code lên GitHub
-
-```bash
-# Nếu chưa có remote repository
-git remote add origin https://github.com/your-username/your-repo-name.git
-
-# Commit tất cả các thay đổi
-git add .
-git commit -m "Prepare for Vercel deployment"
-
-# Push lên GitHub
-git push -u origin main
-```
-
-### Bước 2: Deploy trên Vercel
-
-1. Truy cập [vercel.com](https://vercel.com) và đăng nhập
-2. Click **"Add New..."** → **"Project"**
-3. Import repository từ GitHub:
-   - Chọn repository của bạn
-   - Click **"Import"**
-4. Configure Project:
-   - **Framework Preset**: Other
-   - **Build Command**: (để trống)
-   - **Output Directory**: (để trống)
-   - **Install Command**: `pip install -r requirements.txt`
-5. Click **"Deploy"**
-
-### Bước 3: Hoàn tất
-
-- Vercel sẽ build và deploy tự động (mất ~1-2 phút)
-- Bạn sẽ nhận được URL production: `https://your-project-name.vercel.app`
-- Mỗi lần push code mới lên GitHub, Vercel sẽ tự động deploy lại
-
-## 💻 Development Local
-
-### Cài đặt
+### 1. Backend Setup (Server)
+Navigate to the root directory and set up the Python environment:
 
 ```bash
-# Clone repository
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
-
-# Tạo virtual environment
+# Create virtual environment (optional but recommended)
 python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
-
-# Cài đặt dependencies
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### Chạy local
+# Run the server
+python server/run.py
+```
+*The server will start at `http://localhost:5000`*
+
+### 2. Frontend Setup (Client)
+Open a new terminal and navigate to the client folder:
 
 ```bash
-python app.py
+cd client
+
+# Install dependencies
+npm install
+
+# Start the development server
+npm run dev
 ```
+*The client will start at `http://localhost:5173`*
 
-Mở browser tại: `http://localhost:5000`
+## ✨ Features
 
-## 📋 JSON Export Format
+### 🛠 Grid Editor (Panel 1)
+-   **Visual Editor**: Draw directly on the grid to create custom shapes or "masks" for generation.
+-   **Tools**: Pen, Eraser, and Shape tools (Rectangle, Circle, Line, etc.).
+-   **Import**: Upload an image to automatically convert it into a grid mask.
 
-File JSON export có cấu trúc array of objects với các trường:
+### 🎮 Level Generator (Panel 2)
+-   **Parametric Generation**: Configure `Arrow Count`, `Length Range`, `Bends`, `Holes`, and `Tunnels`.
+-   **Real-time Preview**: See the generated level image instantly.
+-   **Export Tools**:
+    -   **Download Image**: Save the level as a high-quality PNG.
+    -   **Download JSON**: Export the level data for the game engine.
+    -   **Naming Config**: Set customizable `Prefix` and `Suffix` for files (e.g., `level_01_v2.json`).
 
-| Field | Type | Description |
-|-------|------|-------------|
-| position | Array | Mảng các coordinates `[{"x": 0, "y": 0}, ...]` |
-| itemType | String | `snake`, `wall`, `hole`, `tunnel` |
-| itemValueConfig | Number | Counter value (cho wall) hoặc 0 |
+### ⚙️ Global Settings
+-   **Grid Configuration**: Adjust Width and Height dynamically.
+-   **Visuals**: Customize the Background Color.
+-   **Palette**: Manage the "Snake Color Palette" used for generation.
 
-### Tên file:
+## 📝 API Reference
 
-- **Generate Tab**: `Level{X}Data.json` (X là giá trị Level field)
-- **Custom Tab**: `Level{X}Data.json` (X là giá trị Level field)
+### `GET /api/shapes`
+Returns a list of available pre-defined shapes.
 
-Ví dụ: Level = 1 → tải về `Level1Data.json`
-
-### Ví dụ nội dung JSON:
-
-```json
-[
-  {
-    "position": [
-      {"x": 0, "y": 5},
-      {"x": 0, "y": 4}
-    ],
-    "itemType": "snake",
-    "itemValueConfig": 0
-  },
-  {
-    "position": [
-      {"x": 2, "y": 3}
-    ],
-    "itemType": "wall",
-    "itemValueConfig": 3
-  },
-  {
-    "position": [
-      {"x": -1, "y": 2}
-    ],
-    "itemType": "hole",
-    "itemValueConfig": 0
-  },
-  {
-    "position": [
-      {"x": 3, "y": 1},
-      {"x": -3, "y": -1}
-    ],
-    "itemType": "tunnel",
-    "itemValueConfig": 0
-  }
-]
-```
-
-## 🎮 Coordinate System
-
-- **Origin (0, 0)**: Center của grid
-- **X-axis**: Âm ← → Dương
-- **Y-axis**: Âm ↓ ↑ Dương
-- **Snake position[0]**: Đầu snake (arrow head)
-- **Snake position[n-1]**: Đuôi snake
-
-## ⚠️ Vercel Limitations
-
-- **Timeout**: 10 giây cho mỗi request (Free tier)
-- **File upload**: Tối đa 4.5MB
-- **Bandwidth**: Giới hạn theo plan
-- Nếu generate level phức tạp timeout, thử giảm số lượng arrow hoặc kích thước grid
-
-## 🛠️ Tech Stack
-
-- **Backend**: Flask 3.1.2 (Python)
-- **Image Processing**: Pillow 12.0.0
-- **Frontend**: Vanilla JavaScript, HTML5 Canvas
-- **Deployment**: Vercel Serverless Functions
-
-## 📝 License
-
-MIT License - Free to use and modify
+### `POST /api/generate`
+Generates a level based on provided parameters.
+**Body (FormData):**
+-   `arrow_count`, `min/max_arrow_length`, `min/max_bends`: (int) Generation parameters.
+-   `colors`: (JSON string) Array of hex color codes.
+-   `hole_count`, `tunnel_count`: (int) Obstacle counts.
+-   `image_file`: (File, Optional) Mask image for constrained generation.
 
 ## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📧 Contact
-
-Nếu có vấn đề hoặc câu hỏi, vui lòng tạo Issue trên GitHub.
-
----
-
-Made with ❤️ for Game Designers
-
+1.  Fork the repository.
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.
