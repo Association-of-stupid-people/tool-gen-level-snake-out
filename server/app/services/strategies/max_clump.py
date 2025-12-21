@@ -38,9 +38,11 @@ class MaxClumpStrategy(LayeredStrategy):
             pool = candidates[:20] 
             
             for start_pos in pool:
-                path = self.find_solvable_path(start_pos, min_len, max_len, min_bends, max_bends)
+                # Heuristic Mode 2: MaxClump
+                path = self.find_solvable_path(start_pos, min_len, max_len, min_bends, max_bends, heuristic_mode=2)
                 if path:
                     self.occupied.update(path)
+                    for r, c in path: self.grid_array[r, c] = 1 # Sync Grid Array
                     color = random.choice(self.color_list) if self.color_list else "#00FF00"
                     self.snakes.append({
                         "path": path,

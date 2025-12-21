@@ -1,4 +1,4 @@
-import { Grid, Wand2, Settings, Plus, X, ChevronDown, FileJson, Sliders, Package, Ban, Palette } from 'lucide-react'
+import { Grid, Wand2, Settings, Plus, X, ChevronDown, Sliders, Package, Ban, Palette, FileJson, Copy, Code, AlertTriangle, Trash2 } from 'lucide-react'
 import { useSettings } from '../contexts/SettingsContext'
 import { useNotification } from '../contexts/NotificationContext'
 import { useState, useEffect } from 'react'
@@ -17,6 +17,9 @@ interface LeftSidebarProps {
     setNextItemId: React.Dispatch<React.SetStateAction<number>>
     onDataUpdate?: (id: string | number, updates: any) => void
     onObstacleAdd?: (data: { id?: number, type: string, row: number, col: number, color?: string, count?: number, cells?: { row: number, col: number }[], keyId?: number, lockId?: number, snakeId?: number, keySnakeId?: number, lockedSnakeId?: number, countdown?: number }) => void
+    // Grid Data props for JSON Editor
+    gridData?: boolean[][]
+    setGridData?: (data: boolean[][]) => void
 }
 interface ColorDropdownProps {
     color: string
@@ -63,7 +66,162 @@ function ColorDropdown({ color, palette, onChange }: ColorDropdownProps) {
     )
 }
 
-export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerating, jsonInput = '', setJsonInput = () => { }, onObstacleTypeUsed, onObstacleUpdate, onObstacleDelete, nextItemId, setNextItemId, onDataUpdate, onObstacleAdd }: LeftSidebarProps) {
+// JSON Editor Section Component for Grid Panel - Shows gridData (true/false array)
+interface JsonEditorSectionProps {
+    gridData?: boolean[][]
+    onGridDataChange?: (data: boolean[][]) => void
+}
+
+function JsonEditorSection({ gridData, onGridDataChange }: JsonEditorSectionProps) {
+    const { addNotification } = useNotification()
+
+    const [jsonText, setJsonText] = useState('')
+    const [isValid, setIsValid] = useState(true)
+    const [errorMessage, setErrorMessage] = useState('')
+    const [isUserEditing, setIsUserEditing] = useState(false)
+
+    // Helper: Convert boolean grid to Integer Matrix (0/1) for clean formatting
+    const formatGrid = (data: boolean[][]) => {
+        // Map boolean to 0/1
+        const matrix = data.map(row => row.map(cell => cell ? 1 : 0))
+
+        // Format as JSON with one row per line, with spaces for better readability
+        const rows = matrix.map(row => `[${row.join(', ')}]`)
+        return '[\n  ' + rows.join(',\n  ') + '\n]'
+    }
+
+    // Helper: Parse valid JSON (Integer Matrix or Boolean) to boolean grid
+    const parseAndValidate = (text: string): boolean[][] => {
+        try {
+            const parsed = JSON.parse(text)
+
+            // Validate it's a 2D array
+            if (!Array.isArray(parsed) || !parsed.every(row => Array.isArray(row))) {
+                throw new Error('Must be a 2D array')
+            }
+
+            // Convert values to boolean
+            // Support: 1/0, true/false
+            const grid = parsed.map(row => row.map((cell: any) => {
+                if (typeof cell === 'number') return cell !== 0
+                if (typeof cell === 'boolean') return cell
+                if (typeof cell === 'string') return cell === '1' || cell === 'true'
+                return !!cell
+            }))
+
+            // Validate rectangle shape
+            if (grid.length > 0) {
+                const width = grid[0].length
+                if (!grid.every(row => row.length === width)) {
+                    throw new Error('Rows must have equal length')
+                }
+            }
+
+            return grid
+        } catch (e: any) {
+            throw new Error(e.message || 'Invalid JSON format')
+        }
+    }
+
+    // Sync gridData to JSON text
+    useEffect(() => {
+        if (!isUserEditing && gridData) {
+            setJsonText(formatGrid(gridData))
+            setIsValid(true)
+            setErrorMessage('')
+        }
+    }, [gridData, isUserEditing])
+
+    const handleJsonChange = (value: string) => {
+        setJsonText(value)
+        setIsUserEditing(true)
+        try {
+            parseAndValidate(value)
+            setIsValid(true)
+            setErrorMessage('')
+        } catch (e: any) {
+            setIsValid(false)
+            setErrorMessage(e.message || 'Invalid Format')
+        }
+    }
+
+    const handleApplyJson = () => {
+        if (!isValid) return
+        try {
+            const parsedGrid = parseAndValidate(jsonText)
+            onGridDataChange?.(parsedGrid)
+            setIsUserEditing(false)
+            setJsonText(formatGrid(parsedGrid)) // Reformat properly
+            addNotification('success', 'Grid updated')
+        } catch (e) {
+            addNotification('error', 'Failed to parse Grid')
+        }
+    }
+
+    const handleFormat = () => {
+        try {
+            const parsedGrid = parseAndValidate(jsonText)
+            setJsonText(formatGrid(parsedGrid))
+            setIsValid(true)
+        } catch (e: any) {
+            setIsValid(false)
+            setErrorMessage(e.message)
+        }
+    }
+
+    const handleCopy = async () => {
+        await navigator.clipboard.writeText(jsonText)
+        addNotification('success', 'Copied!')
+    }
+
+    const handleClear = () => {
+        const rows = gridData?.length || 10
+        const cols = gridData?.[0]?.length || 10
+        const empty = Array(rows).fill(null).map(() => Array(cols).fill(false))
+        setJsonText(formatGrid(empty))
+        setIsUserEditing(true)
+        onGridDataChange?.(empty)
+    }
+
+    const cellCount = gridData ? gridData.flat().filter(Boolean).length : 0
+    const totalCells = gridData ? gridData.length * (gridData[0]?.length || 0) : 0
+
+    return (
+        <div className="space-y-4 h-full flex flex-col">
+            <div className="bg-gray-700/50 rounded-xl p-4 flex-1 flex flex-col">
+                <h3 className="text-sm font-semibold text-white border-b border-gray-600 pb-2 mb-3 flex items-center gap-2">
+                    <FileJson size={16} className="text-purple-400" /> <span className="translate-y-[1px]">Grid Editor</span>
+                </h3>
+                <p className="text-xs text-gray-400 mb-3">{cellCount} / {totalCells} cells filled</p>
+
+                <textarea
+                    value={jsonText}
+                    onChange={(e) => handleJsonChange(e.target.value)}
+                    className={`flex-1 min-h-[320px] w-full bg-gray-900/80 rounded-lg p-3 text-xs font-mono text-gray-200 resize-none focus:outline-none scrollbar-hide ${isValid ? 'border border-gray-600/50 focus:border-purple-500' : 'border-2 border-red-500/70'}`}
+                    spellCheck={false}
+                    placeholder="Row 0: 0, 0, 1..."
+                />
+
+                {!isValid && <p className="text-xs text-red-400 mt-2 flex items-center gap-1"><AlertTriangle size={12} /> {errorMessage}</p>}
+
+                {isUserEditing && isValid && (
+                    <div className="flex gap-2 mt-3">
+                        <button onClick={handleApplyJson} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs py-2 rounded transition-colors">Apply</button>
+                        <button onClick={() => setIsUserEditing(false)} className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded">Cancel</button>
+                    </div>
+                )}
+
+                <div className="flex gap-2 mt-3">
+                    <button onClick={handleFormat} className="flex-1 flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 rounded"><Code size={12} /> <span className="translate-y-[1px]">Format</span></button>
+                    <button onClick={handleCopy} className="flex-1 flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 rounded"><Copy size={12} /> <span className="translate-y-[1px]">Copy</span></button>
+                    <button onClick={handleClear} className="flex items-center justify-center bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded"><Trash2 size={12} /></button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerating, onObstacleTypeUsed, onObstacleUpdate, onObstacleDelete, nextItemId, setNextItemId, onDataUpdate, onObstacleAdd, gridData, setGridData }: LeftSidebarProps) {
     const {
         gridSize, setGridSize,
         snakePalette, setSnakePalette,
@@ -228,33 +386,15 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
         { id: 'settings' as const, icon: Settings, label: 'Settings' },
     ]
 
-    const { addNotification } = useNotification()
+
 
     const handleGenerateClick = () => {
         if (onGenerate) {
-            if (jsonInput.trim()) {
-                try {
-                    const parsed = JSON.parse(jsonInput)
-                    if (Array.isArray(parsed)) {
-                        // Logic handled in App.tsx mainly
-                    }
-                    onGenerate({
-                        arrowCount,
-                        minLen: lengthRange.min,
-                        maxLen: lengthRange.max,
-                        minBends: bendsRange.min,
-                        maxBends: bendsRange.max,
-                        obstacles,
-                        palette: snakePalette,
-                        customInput: jsonInput,
-                        distributionStrategy,
-                        strategyConfig
-                    })
-                    return;
-                } catch (e) {
-                    addNotification('error', 'Invalid JSON Input')
-                    return
-                }
+            // Transform gridData to 0/1 Integer Matrix for server
+            let customInput = undefined
+            if (gridData && gridData.length > 0) {
+                const matrix = gridData.map(row => row.map(cell => cell ? 1 : 0))
+                customInput = JSON.stringify(matrix)
             }
 
             onGenerate({
@@ -266,7 +406,8 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                 obstacles,
                 palette: snakePalette,
                 distributionStrategy,
-                strategyConfig
+                strategyConfig,
+                customInput // Pass the grid data!
             })
         }
     }
@@ -314,9 +455,10 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
                 {activePanel === 'panel1' && (
-                    <div className="text-center text-gray-500 mt-4">
-                        <p className="text-sm">Select tools from the right sidebar to draw on the grid.</p>
-                    </div>
+                    <JsonEditorSection
+                        gridData={gridData}
+                        onGridDataChange={setGridData}
+                    />
                 )}
 
                 {activePanel === 'panel2' && (
@@ -338,27 +480,11 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             )}
                         </button>
 
-                        {/* JSON Input */}
-                        <div className="bg-gray-700/50 rounded-xl p-4 space-y-3">
-                            <h3 className="text-sm font-semibold text-white border-b border-gray-600 pb-2 flex items-center gap-2">
-                                <FileJson size={16} /> JSON Input
-                            </h3>
-                            <div className="space-y-2">
-                                <input
-                                    type="text"
-                                    value={jsonInput}
-                                    onChange={(e) => setJsonInput(e.target.value)}
-                                    placeholder='Paste grid JSON...'
-                                    className="w-full bg-gray-900/50 border border-gray-600/50 rounded-lg px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-purple-500 transition-all"
-                                />
-                            </div>
-                        </div>
-
 
 
                         <div className="bg-gray-700/50 rounded-xl p-4 space-y-4">
                             <h3 className="text-sm font-semibold text-white border-b border-gray-600 pb-2 flex items-center gap-2">
-                                <Package size={16} /> Distribution Strategy
+                                <Package size={16} /> <span className="translate-y-[1px]">Distribution Strategy</span>
                             </h3>
 
                             <div className="flex items-center justify-between gap-4">
@@ -594,7 +720,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
 
                         <div className="bg-gray-700/50 rounded-xl p-4 space-y-4">
                             <h3 className="text-sm font-semibold text-white border-b border-gray-600 pb-2 flex items-center gap-2">
-                                <Sliders size={16} /> Complexity
+                                <Sliders size={16} /> <span className="translate-y-[1px]">Complexity</span>
                             </h3>
 
                             <div className="space-y-1">
@@ -634,7 +760,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                         <div className="bg-gray-700/50 rounded-xl p-4 space-y-4">
                             <div className="flex justify-between items-center border-b border-gray-600 pb-2">
                                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                                    <Ban size={16} /> Obstacles
+                                    <Ban size={16} /> <span className="translate-y-[1px]">Obstacles</span>
                                 </h3>
                                 <span className="text-xs font-mono text-purple-300 bg-purple-900/50 px-2 py-0.5 rounded-full">
                                     {obstacles.length} Items

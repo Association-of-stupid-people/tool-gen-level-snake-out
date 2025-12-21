@@ -55,6 +55,7 @@ export function GridCanvas({
 
     // Validation State
     const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'success' | 'stuck'>('idle')
+    const [showOverlays, setShowOverlays] = useState(true)
     const prevOverlaysRef = useRef(overlays)
 
     // Reset validation state on overlay content change (not just on mount)
@@ -189,6 +190,8 @@ export function GridCanvas({
         ctx.scale(zoom, zoom)
 
         // Draw grid cells
+        // 1. Fill active cells and previews (Batch operations where possible)
+        // Optimization: Only loop to fill, don't stroke every cell
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
                 const x = c * CELL_SIZE
@@ -204,8 +207,8 @@ export function GridCanvas({
                     }
                 }
 
-                // Fill logic
-                if (isActive) {
+                // Hide grid data if overlays exist (Generator Mode) and visuals are toggled off
+                if (isActive && (!overlays || showOverlays)) {
                     ctx.fillStyle = '#8b5cf6' // Purple
                     ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
                 }
@@ -214,15 +217,34 @@ export function GridCanvas({
                     ctx.fillStyle = 'rgba(139, 92, 246, 0.5)' // Semi-transparent purple
                     ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
                 }
-
-                // Draw grid lines
-                ctx.strokeStyle = '#374151'
-                ctx.lineWidth = 0.5
-                ctx.strokeRect(x, y, CELL_SIZE, CELL_SIZE)
             }
         }
 
-        // Draw Overlays (Generator Mode)
+        // 2. Draw Grid Lines Efficiently (O(Rows + Cols) instead of O(Rows * Cols))
+        ctx.strokeStyle = '#374151'
+        ctx.lineWidth = 0.5
+        ctx.beginPath()
+
+        const gridWidth = cols * CELL_SIZE
+        const gridHeight = rows * CELL_SIZE
+
+        // Vertical Lines
+        for (let c = 0; c <= cols; c++) {
+            const x = c * CELL_SIZE
+            ctx.moveTo(x, 0)
+            ctx.lineTo(x, gridHeight)
+        }
+
+        // Horizontal Lines
+        for (let r = 0; r <= rows; r++) {
+            const y = r * CELL_SIZE
+            ctx.moveTo(0, y)
+            ctx.lineTo(gridWidth, y)
+        }
+
+        ctx.stroke()
+
+        // Draw Overlays (Generator Mode) - Always show overlays regardless of toggle
         if (overlays) {
             // Draw Obstacles
             const drawObstacleItem = (obs: any, isPreview: boolean = false) => {
@@ -567,7 +589,7 @@ export function GridCanvas({
         }
 
         ctx.restore()
-    }, [gridData, rows, cols, zoom, pan, currentTool, isDrawing, shapeStart, shapePreview, currentShape, overlays, readOnlyGrid, previewPath, previewObstacle])
+    }, [gridData, rows, cols, zoom, pan, currentTool, isDrawing, shapeStart, shapePreview, currentShape, overlays, readOnlyGrid, previewPath, previewObstacle, showOverlays])
 
     // Get grid coordinates from mouse event
     const getGridCoords = (e: React.MouseEvent) => {
@@ -790,6 +812,22 @@ export function GridCanvas({
 
 
                 <div className="flex-1" />
+
+                {/* Show/Hide Overlays Toggle - Only for Generator Mode (when overlays exist) */}
+                {overlays && (
+                    <div className="flex items-center gap-2 mr-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded transition-colors">
+                        <span className="text-[10px] text-gray-300 font-medium select-none">Visuals</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={showOverlays}
+                                onChange={() => setShowOverlays(prev => !prev)}
+                                className="sr-only peer"
+                            />
+                            <div className="w-7 h-4 bg-gray-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500"></div>
+                        </label>
+                    </div>
+                )}
 
                 {/* Validate Button - always rendered but invisible when not in Generator mode */}
                 <button

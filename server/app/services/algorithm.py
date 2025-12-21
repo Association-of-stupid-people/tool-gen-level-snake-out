@@ -20,7 +20,15 @@ def generate_level(arrow_count, custom_grid=None,
         valid_cells = set()
         for r in range(ROWS):
             for c in range(COLS):
-                if custom_grid[r][c]:
+                # Support boolean, integer (0/1), or string ("1"/"true")
+                cell = custom_grid[r][c]
+                is_valid = False
+                if isinstance(cell, str):
+                    is_valid = cell.lower() in ('1', 'true')
+                else:
+                    is_valid = bool(cell) # Handles 1/True
+                
+                if is_valid:
                     valid_cells.add((r, c))
                     
     # 2. Setup Obstacles
@@ -64,6 +72,15 @@ def generate_level(arrow_count, custom_grid=None,
          StrategyClass = SmartDynamicStrategy
 
     MAX_RETRIES = 20
+    
+    # Optimization: For large grids or high arrow counts, reduce retries to avoid timeout.
+    # 10s per gen * 20 retries = 200s (Too long).
+    is_large_grid = (ROWS * COLS) >= 2500 # 50x50
+    is_heavy_load = arrow_count > 200
+    
+    if is_large_grid or is_heavy_load:
+        MAX_RETRIES = 5
+        logs.append(f"Large Grid/Heavy Load detected. Restricted to {MAX_RETRIES} attempt(s) for speed.")
     best_result = None
     best_score = -1 # Score = (Solvable * 1000) + Coverage_Percent
     

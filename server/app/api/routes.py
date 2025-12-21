@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.services.algorithm import generate_level
 from app.services.validator import validate_level
+from app.services.difficulty_calculator import calculate
 import json
 
 api_bp = Blueprint('api', __name__)
@@ -117,4 +118,29 @@ def validate():
 
     except Exception as e:
         print(f"VALIDATION ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@api_bp.route('/calculate-difficulty', methods=['POST'])
+def calculate_difficulty_route():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+
+        rows = data.get('rows')
+        cols = data.get('cols')
+        snakes = data.get('snakes', []) # Expects format with 'path'
+        obstacles = data.get('obstacles', []) # List of dicts
+
+        # Map snake input format if needed (Frontend sends [{path: ...}])
+        # Calculator expects standard structure.
+        
+        # NOTE: Frontend currently sends `path` as `[{row, col}, ...]`.
+        # Calculator uses this directly.
+
+        result = calculate(snakes, obstacles, rows, cols)
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"DIFFICULTY CALCULATION ERROR: {e}")
         return jsonify({"error": str(e)}), 500

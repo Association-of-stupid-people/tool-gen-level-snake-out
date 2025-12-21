@@ -1,8 +1,9 @@
-import { ColorDropdown } from './ColorDropdown'
-import { Pencil, Eraser, Shapes, Upload, Trash2, Download, Copy, FileJson, Info, ArrowUpRight, Ban, FileUp, ClipboardPaste, Settings } from 'lucide-react'
+import { CustomSelect } from './CustomSelect'
+import { ColorSelect } from './ColorSelect'
+import { Pencil, Eraser, Shapes, Upload, Trash2, Download, Copy, FileJson, Info, ArrowUpRight, Ban, FileUp, ClipboardPaste, Settings, Play, Calculator } from 'lucide-react'
 import { useSettings } from '../contexts/SettingsContext'
 import { useNotification } from '../contexts/NotificationContext'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface RightSidebarProps {
     mode: 'editor' | 'generator'
@@ -31,6 +32,7 @@ interface RightSidebarProps {
     }
     onClearOverlays?: () => void
     onImportJson?: (json: string) => void
+    onSimulate?: () => void
 }
 
 export function RightSidebar({
@@ -52,11 +54,55 @@ export function RightSidebar({
     setGeneratorSettings,
     generatorOverlays,
     onClearOverlays,
-    onImportJson
+    onImportJson,
+    onSimulate
 }: RightSidebarProps) {
     const { filenamePrefix, filenameSuffix, snakePalette, gridSize } = useSettings()
     const { addNotification } = useNotification()
     const [activeTab, setActiveTab] = useState<'tools' | 'actions'>('tools')
+    const [difficultyData, setDifficultyData] = useState<any>(null)
+    const [isCalculating, setIsCalculating] = useState(false)
+
+    // Clear difficulty data when grid changes
+    useEffect(() => {
+        setDifficultyData(null)
+    }, [generatorOverlays])
+
+    const handleCalculateDifficulty = async () => {
+        if (!generatorOverlays) return
+
+        setIsCalculating(true)
+        try {
+            const payload = {
+                rows: gridSize.height,
+                cols: gridSize.width,
+                snakes: generatorOverlays.arrows.map(a => ({
+                    path: a.path || [{ row: a.row, col: a.col }]
+                })),
+                obstacles: generatorOverlays.obstacles
+            }
+
+            const res = await fetch('http://localhost:5000/api/calculate-difficulty', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+
+            if (!res.ok) {
+                const err = await res.json()
+                throw new Error(err.error || 'Failed to calculate')
+            }
+
+            const data = await res.json()
+            setDifficultyData(data)
+            addNotification('success', 'Difficulty calculated!')
+        } catch (e: any) {
+            console.error(e)
+            addNotification('error', 'Calculation failed: ' + e.message)
+        } finally {
+            setIsCalculating(false)
+        }
+    }
 
     const tools = [
         { id: 'pen' as const, icon: Pencil, label: 'Pen' },
@@ -131,6 +177,9 @@ export function RightSidebar({
             y: centerR - r
         })
 
+        // Counter for sequential itemID export
+        let exportItemID = 0
+
         // Convert arrows (snakes) - each snake is one item with position array
         arrows.forEach(arrow => {
             const path = arrow.path || [{ row: arrow.row, col: arrow.col }]
@@ -142,7 +191,7 @@ export function RightSidebar({
             const colorId = snakePalette.indexOf(arrow.color)
 
             levelData.push({
-                itemID: arrow.id,
+                itemID: exportItemID++,
                 itemType: "snake",
                 position: positions,
                 itemValueConfig: null,
@@ -155,7 +204,7 @@ export function RightSidebar({
             if (obs.type === 'iced_snake') {
                 // Config-only: Iced Snake
                 levelData.push({
-                    itemID: obs.id,
+                    itemID: exportItemID++,
                     itemType: "icedSnake",
                     position: null,
                     itemValueConfig: {
@@ -167,7 +216,7 @@ export function RightSidebar({
             } else if (obs.type === 'key_snake') {
                 // Config-only: Key Snake
                 levelData.push({
-                    itemID: obs.id,
+                    itemID: exportItemID++,
                     itemType: "keySnake",
                     position: null,
                     itemValueConfig: {
@@ -179,7 +228,7 @@ export function RightSidebar({
             } else if (obs.type === 'hole') {
                 const colorId = obs.color ? snakePalette.indexOf(obs.color) : -1
                 levelData.push({
-                    itemID: obs.id,
+                    itemID: exportItemID++,
                     itemType: "hole",
                     position: [toPos(obs.row, obs.col)],
                     itemValueConfig: null,
@@ -196,7 +245,7 @@ export function RightSidebar({
                 const direction = directionMap[obs.direction || 'right'] || { x: 1, y: 0 }
                 const colorId = obs.color ? snakePalette.indexOf(obs.color) : -1
                 levelData.push({
-                    itemID: obs.id,
+                    itemID: exportItemID++,
                     itemType: "tunel",
                     position: [toPos(obs.row, obs.col)],
                     itemValueConfig: {
@@ -210,7 +259,7 @@ export function RightSidebar({
                 const cells = obs.cells || [{ row: obs.row, col: obs.col }]
                 const positions = cells.map(cell => toPos(cell.row, cell.col))
                 levelData.push({
-                    itemID: obs.id,
+                    itemID: exportItemID++,
                     itemType: "wall",
                     position: positions,
                     itemValueConfig: null,
@@ -221,7 +270,7 @@ export function RightSidebar({
                 const cells = obs.cells || [{ row: obs.row, col: obs.col }]
                 const positions = cells.map(cell => toPos(cell.row, cell.col))
                 levelData.push({
-                    itemID: obs.id,
+                    itemID: exportItemID++,
                     itemType: "wallBreak",
                     position: positions,
                     itemValueConfig: {
@@ -275,7 +324,7 @@ export function RightSidebar({
                             `}
                         >
                             <Pencil size={14} className="mr-2" />
-                            Tools
+                            <span className="translate-y-[1px]">Tools</span>
                         </button>
                         <button
                             onClick={() => setActiveTab('actions')}
@@ -285,7 +334,7 @@ export function RightSidebar({
                             `}
                         >
                             <Download size={14} className="mr-2" />
-                            Files
+                            <span className="translate-y-[1px]">Files</span>
                         </button>
                     </div>
                 </div>
@@ -332,16 +381,15 @@ export function RightSidebar({
                         {generatorTool === 'arrow' && generatorSettings && setGeneratorSettings && (
                             <div className="bg-gray-700/50 rounded-xl p-4 mb-6">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <ArrowUpRight size={16} /> Arrow Settings
+                                    <ArrowUpRight size={16} /> <span className="translate-y-[1px]">Arrow Settings</span>
                                 </h3>
                                 <div className="space-y-2">
                                     <label className="text-xs text-gray-400 block mb-1">Arrow Color</label>
-                                    <ColorDropdown
-                                        color={generatorSettings.arrowColor === 'random' ? snakePalette[0] : generatorSettings.arrowColor}
+                                    <ColorSelect
+                                        value={generatorSettings.arrowColor}
                                         palette={snakePalette}
                                         onChange={(color) => setGeneratorSettings({ ...generatorSettings, arrowColor: color })}
                                         showRandomOption={true}
-                                        onRandomSelect={() => setGeneratorSettings({ ...generatorSettings, arrowColor: 'random' })}
                                         isRandomSelected={generatorSettings.arrowColor === 'random'}
                                     />
                                 </div>
@@ -351,34 +399,24 @@ export function RightSidebar({
                         {generatorTool === 'obstacle' && generatorSettings && setGeneratorSettings && generatorOverlays && (
                             <div className="bg-gray-700/50 rounded-xl p-4 mb-6">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <Ban size={16} /> Obstacle Settings
+                                    <Ban size={16} /> <span className="translate-y-[1px]">Obstacle Settings</span>
                                 </h3>
                                 <div className="space-y-4">
                                     {/* Obstacle Type Dropdown */}
                                     <div className="space-y-1">
                                         <label className="text-xs text-gray-400 block mb-1">Obstacle Type</label>
-                                        <div className="relative">
-                                            <select
-                                                value={generatorSettings.obstacleType}
-                                                onChange={(e) => {
-                                                    const newType = e.target.value
-                                                    // Set default color to Color 1 for hole/tunnel
-                                                    if (newType === 'hole' || newType === 'tunnel') {
-                                                        setGeneratorSettings({ ...generatorSettings, obstacleType: newType, obstacleColor: 'Color 1' })
-                                                    } else {
-                                                        setGeneratorSettings({ ...generatorSettings, obstacleType: newType })
-                                                    }
-                                                }}
-                                                className="w-full bg-gray-900/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white appearance-none focus:outline-none focus:border-purple-500"
-                                            >
-                                                {obstacleTypes.map(type => (
-                                                    <option key={type.id} value={type.id}>{type.label}</option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                <ArrowUpRight size={14} className="rotate-45" />
-                                            </div>
-                                        </div>
+                                        <CustomSelect
+                                            value={generatorSettings.obstacleType}
+                                            options={obstacleTypes.map(t => ({ value: t.id, label: t.label }))}
+                                            onChange={(val) => {
+                                                const newType = val
+                                                if (newType === 'hole' || newType === 'tunnel') {
+                                                    setGeneratorSettings({ ...generatorSettings, obstacleType: newType as any, obstacleColor: 'Color 1' })
+                                                } else {
+                                                    setGeneratorSettings({ ...generatorSettings, obstacleType: newType as any })
+                                                }
+                                            }}
+                                        />
                                     </div>
 
                                     {/* Color Selection for Tunnel & Hole */}
@@ -387,74 +425,69 @@ export function RightSidebar({
                                             <label className="text-xs text-gray-400 block mb-1">
                                                 {generatorSettings.obstacleType === 'tunnel' ? 'Tunnel Color' : 'Hole Color'}
                                             </label>
-                                            <ColorDropdown
-                                                color={generatorSettings.obstacleColor === 'random' ? snakePalette[0] : generatorSettings.obstacleColor}
+                                            <ColorSelect
+                                                value={generatorSettings.obstacleColor}
                                                 palette={snakePalette}
                                                 onChange={(color) => setGeneratorSettings({ ...generatorSettings, obstacleColor: color })}
                                                 showRandomOption={false}
                                                 isRandomSelected={false}
                                             />
+                                        </div>
+                                    )}
 
-                                            {/* Direction Dropdown for Tunnel */}
-                                            {generatorSettings.obstacleType === 'tunnel' && (
-                                                <div className="space-y-1">
-                                                    <label className="text-xs text-gray-400 block mb-1">Direction</label>
-                                                    <div className="relative">
-                                                        <select
-                                                            value={generatorSettings.tunnelDirection}
-                                                            onChange={(e) => setGeneratorSettings({ ...generatorSettings, tunnelDirection: e.target.value })}
-                                                            className="w-full bg-gray-900/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white appearance-none focus:outline-none focus:border-purple-500"
-                                                        >
-                                                            <option value="up">↑ Up</option>
-                                                            <option value="down">↓ Down</option>
-                                                            <option value="left">← Left</option>
-                                                            <option value="right">→ Right</option>
-                                                        </select>
-                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                                            <ArrowUpRight size={14} className="rotate-45" />
+                                    {/* Direction Dropdown for Tunnel */}
+                                    {generatorSettings.obstacleType === 'tunnel' && (
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-400 block mb-1">Direction</label>
+                                            <CustomSelect
+                                                value={generatorSettings.tunnelDirection}
+                                                options={[
+                                                    { value: 'up', label: '↑ Up' },
+                                                    { value: 'down', label: '↓ Down' },
+                                                    { value: 'left', label: '← Left' },
+                                                    { value: 'right', label: '→ Right' },
+                                                ]}
+                                                onChange={(val) => setGeneratorSettings({ ...generatorSettings, tunnelDirection: val })}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Tunnel Pairing Logic Display */}
+                                    {generatorSettings.obstacleType === 'tunnel' && (
+                                        <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 mt-2">
+                                            {(() => {
+                                                const currentTunnelCount = generatorOverlays.obstacles.filter(
+                                                    o => o.type === 'tunnel' && o.color === generatorSettings.obstacleColor
+                                                ).length
+
+                                                const isComplete = currentTunnelCount >= 2 && currentTunnelCount % 2 === 0
+                                                const remainder = currentTunnelCount % 2
+
+                                                return (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${isComplete ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                                                        <div className="flex-1">
+                                                            <p className="text-xs font-medium text-white">
+                                                                {isComplete
+                                                                    ? "Pair check: OK"
+                                                                    : "Pair check: Incomplete"
+                                                                }
+                                                            </p>
+                                                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                                                {remainder === 0
+                                                                    ? "Place first tunnel to start a pair."
+                                                                    : "Place one more tunnel to complete the pair."
+                                                                }
+                                                            </p>
+                                                            {currentTunnelCount > 0 && (
+                                                                <p className="text-[10px] text-gray-500 mt-1">
+                                                                    Current count: <span className="text-gray-300">{currentTunnelCount}</span>
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                </div>
-                                            )}
-
-                                            {/* Tunnel Pairing Logic Display */}
-                                            {generatorSettings.obstacleType === 'tunnel' && (
-                                                <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 mt-2">
-                                                    {(() => {
-                                                        const currentTunnelCount = generatorOverlays.obstacles.filter(
-                                                            o => o.type === 'tunnel' && o.color === generatorSettings.obstacleColor
-                                                        ).length
-
-                                                        const isComplete = currentTunnelCount >= 2 && currentTunnelCount % 2 === 0
-                                                        const remainder = currentTunnelCount % 2
-
-                                                        return (
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={`w-1.5 h-1.5 rounded-full ${isComplete ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                                                                <div className="flex-1">
-                                                                    <p className="text-xs font-medium text-white">
-                                                                        {isComplete
-                                                                            ? "Pair check: OK"
-                                                                            : "Pair check: Incomplete"
-                                                                        }
-                                                                    </p>
-                                                                    <p className="text-[10px] text-gray-400 mt-0.5">
-                                                                        {remainder === 0
-                                                                            ? "Place first tunnel to start a pair."
-                                                                            : "Place one more tunnel to complete the pair."
-                                                                        }
-                                                                    </p>
-                                                                    {currentTunnelCount > 0 && (
-                                                                        <p className="text-[10px] text-gray-500 mt-1">
-                                                                            Current count: <span className="text-gray-300">{currentTunnelCount}</span>
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    })()}
-                                                </div>
-                                            )}
+                                                )
+                                            })()}
                                         </div>
                                     )}
 
@@ -479,14 +512,68 @@ export function RightSidebar({
                         {/* Clear Overlays Block */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Trash2 size={16} /> Actions
+                                <Trash2 size={16} /> <span className="translate-y-[1px]">Actions</span>
                             </h3>
                             <button
                                 onClick={onClearOverlays}
                                 className="w-full py-2 bg-red-500/10 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                             >
-                                <Trash2 size={14} /> Clear All
+                                <Trash2 size={14} /> <span className="translate-y-[1px]">Clear All</span>
                             </button>
+                            <button
+                                onClick={onSimulate}
+                                className="w-full mt-2 py-2 bg-green-500/10 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                                <Play size={14} /> <span className="translate-y-[1px]">Simulate Level</span>
+                            </button>
+                        </div>
+
+                        {/* Difficulty Analysis */}
+                        <div className="bg-gray-700/50 rounded-xl p-4 space-y-3 mt-4">
+                            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                                <Calculator size={16} /> <span className="translate-y-[1px]">Difficulty Analysis</span>
+                            </h3>
+
+                            <button
+                                onClick={handleCalculateDifficulty}
+                                disabled={!generatorOverlays || isCalculating}
+                                className={`w-full py-2 bg-orange-500/10 text-orange-400 border border-orange-500/50 rounded-lg hover:bg-orange-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none ${(!generatorOverlays || isCalculating) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                {isCalculating ? (
+                                    <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <Calculator size={14} />
+                                )}
+                                Calculate Score
+                            </button>
+
+                            {difficultyData && (
+                                <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex justify-between items-end border-b border-gray-700 pb-2">
+                                        <span className="text-xs text-gray-400">Total Difficulty</span>
+                                        <span className="text-xl font-bold text-orange-400">{difficultyData.difficulty_score}</span>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+                                        <div className="bg-gray-900/40 rounded p-1">
+                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Snake</div>
+                                            <div className="text-sm font-semibold text-blue-400">{difficultyData.breakdown.S}</div>
+                                        </div>
+                                        <div className="bg-gray-900/40 rounded p-1">
+                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Free</div>
+                                            <div className="text-sm font-semibold text-green-400">{difficultyData.breakdown.F}</div>
+                                        </div>
+                                        <div className="bg-gray-900/40 rounded p-1">
+                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Obs</div>
+                                            <div className="text-sm font-semibold text-red-400">{difficultyData.breakdown.O}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-[10px] text-gray-500 italic text-center mt-1">
+                                        Score = S (Load) + F (Freedom) + O (Obstacles)
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -496,7 +583,7 @@ export function RightSidebar({
                             {/* Level Config */}
                             <div className="bg-gray-700/50 rounded-xl p-4">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <Settings size={16} /> Export Config
+                                    <Settings size={16} /> <span className="translate-y-[1px]">Export Config</span>
                                 </h3>
                                 <div className="space-y-2">
                                     <label className="text-xs text-gray-400">Level ID</label>
@@ -513,7 +600,7 @@ export function RightSidebar({
                             {/* Uploads */}
                             <div className="bg-gray-700/50 rounded-xl p-4 space-y-3">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <Upload size={16} /> Import
+                                    <Upload size={16} /> <span className="translate-y-[1px]">Import</span>
                                 </h3>
 
                                 <button
@@ -536,7 +623,7 @@ export function RightSidebar({
                                         }
                                         input.click()
                                     }}
-                                    className="w-full py-2 bg-blue-500/10 text-blue-400 border border-blue-500/50 rounded-lg hover:bg-blue-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                                    className="w-full py-2 bg-blue-500/10 text-blue-400 border border-blue-500/50 rounded-lg hover:bg-blue-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none"
                                 >
                                     <FileUp size={14} /> Import from File
                                 </button>
@@ -552,7 +639,7 @@ export function RightSidebar({
                                             addNotification('error', 'Invalid JSON in clipboard!')
                                         }
                                     }}
-                                    className="w-full py-2 bg-green-500/10 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                                    className="w-full py-2 bg-green-500/10 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none"
                                 >
                                     <ClipboardPaste size={14} /> Import from Clipboard
                                 </button>
@@ -561,7 +648,7 @@ export function RightSidebar({
                             {/* Export */}
                             <div className="bg-gray-700/50 rounded-xl p-4 space-y-3">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <FileJson size={16} /> Export
+                                    <FileJson size={16} /> <span className="translate-y-[1px]">Export</span>
                                 </h3>
                                 <p className="text-[10px] text-gray-500 -mt-2 mb-2">
                                     Export arrows and obstacles drawn on grid
@@ -570,7 +657,7 @@ export function RightSidebar({
                                 <button
                                     onClick={handleDownloadDrawnJson}
                                     disabled={!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0)}
-                                    className={`w-full py-2 bg-purple-500/10 text-purple-400 border border-purple-500/50 rounded-lg hover:bg-purple-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 ${(!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0))
+                                    className={`w-full py-2 bg-purple-500/10 text-purple-400 border border-purple-500/50 rounded-lg hover:bg-purple-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none ${(!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0))
                                         ? 'opacity-50 cursor-not-allowed'
                                         : ''
                                         }`}
@@ -581,7 +668,7 @@ export function RightSidebar({
                                 <button
                                     onClick={handleExportDrawnJson}
                                     disabled={!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0)}
-                                    className={`w-full py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/50 rounded-lg hover:bg-emerald-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 ${(!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0))
+                                    className={`w-full py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/50 rounded-lg hover:bg-emerald-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none ${(!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0))
                                         ? 'opacity-50 cursor-not-allowed'
                                         : ''
                                         }`}
@@ -597,11 +684,12 @@ export function RightSidebar({
                             </div>
 
 
+
                             {/* Debug Info */}
                             {levelJson && (
                                 <div className="bg-gray-700/50 rounded-xl p-4">
                                     <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                        <Info size={16} /> Debug Info
+                                        <Info size={16} /> <span className="translate-y-[1px]">Debug Info</span>
                                     </h3>
                                     <div className="text-xs text-gray-400 space-y-1">
                                         <p>Objects: <span className="text-white">{levelJson.length}</span></p>
@@ -613,7 +701,7 @@ export function RightSidebar({
                     </div>
 
                 </div>
-            </div>
+            </div >
         )
     }
 
@@ -630,7 +718,7 @@ export function RightSidebar({
                         className="relative z-10 flex-1 flex items-center justify-center text-xs font-medium text-white transition-colors duration-200"
                     >
                         <Pencil size={14} className="mr-2" />
-                        Tools
+                        <span className="translate-y-[1px]">Tools</span>
                     </button>
                 </div>
             </div>
@@ -682,7 +770,7 @@ export function RightSidebar({
                     {currentTool === 'shape' && (
                         <div className="bg-gray-700/50 rounded-xl p-4 mb-6">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Shapes size={16} /> Select Shape
+                                <Shapes size={16} /> <span className="translate-y-[1px]">Select Shape</span>
                             </h3>
                             <div className="grid grid-cols-3 gap-2">
                                 {shapes.map(shape => (
@@ -710,7 +798,7 @@ export function RightSidebar({
                         {/* Image Import */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Upload size={16} /> Import Mask
+                                <Upload size={16} /> <span className="translate-y-[1px]">Import Mask</span>
                             </h3>
                             <div className="relative group">
                                 <input
@@ -731,7 +819,7 @@ export function RightSidebar({
                         {/* Actions */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Trash2 size={16} /> Actions
+                                <Trash2 size={16} /> <span className="translate-y-[1px]">Actions</span>
                             </h3>
                             <div className="space-y-2">
                                 <button

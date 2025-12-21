@@ -173,6 +173,7 @@ class SymmetricalStrategy(LayeredStrategy):
                     
                     # Place original snake
                     self.occupied.update(path)
+                    for r, c in path: self.grid_array[r, c] = 1 # Sync Grid Array
                     color = random.choice(self.color_list) if self.color_list else "#00FF00"
                     self.snakes.append({
                         "path": path,
@@ -188,6 +189,7 @@ class SymmetricalStrategy(LayeredStrategy):
                         if set(mpath) == set(path):
                             continue
                         self.occupied.update(mpath)
+                        for r, c in mpath: self.grid_array[r, c] = 1 # Sync Grid Array
                         self.snakes.append({
                             "path": mpath,
                             "color": color  # Same color for symmetry
@@ -201,6 +203,66 @@ class SymmetricalStrategy(LayeredStrategy):
         min_fragment_bonus_fill(self, min_len, max_len, min_bends, max_bends)
         
         return self.get_result()
+
+    def find_solvable_path(self, start_pos, min_len, max_len, min_bends, max_bends, heuristic_mode=0):
+        # Custom Python DFS to respect sort_neighbors (Symmetry Logic)
+        stack = []
+        # (current_path, current_bends)
+        stack.append(([start_pos], 0))
+        
+        # Max nodes
+        max_nodes = 500
+        nodes_visited = 0
+        
+        while stack:
+            nodes_visited += 1
+            if nodes_visited > max_nodes:
+                break
+                
+            path, bends = stack.pop()
+            curr = path[-1]
+            path_len = len(path)
+            
+            # Check Success
+            if path_len >= min_len:
+                head = path[-1]
+                neck = path[-2] if len(path) > 1 else head
+                direction = (head[0] - neck[0], head[1] - neck[1])
+                
+                # Use base class check (Numba)
+                if self.is_exitable(head, direction):
+                    should_stop = False
+                    if path_len >= max_len: should_stop = True
+                    elif random.random() < 0.3: should_stop = True
+                    
+                    if should_stop:
+                        return path
+
+            if path_len >= max_len:
+                continue
+                
+            # Get Neighbors
+            from ..utils import get_neighbors
+            raw_nbs = get_neighbors(curr[0], curr[1], self.rows, self.cols)
+            valid_nbs = [n for n in raw_nbs if n in self.valid_cells and n not in self.occupied and n not in path]
+            
+            # Sort using Symmetry Logic
+            sorted_nbs = self.sort_neighbors(valid_nbs, path)
+            
+            # Add to stack
+            for n in reversed(sorted_nbs):
+                new_bends = bends
+                if len(path) > 1:
+                    prev = path[-2]
+                    d1 = (curr[0] - prev[0], curr[1] - prev[1])
+                    d2 = (n[0] - curr[0], n[1] - curr[1])
+                    if d1 != d2:
+                        new_bends += 1
+                
+                if new_bends <= max_bends:
+                    stack.append((path + [n], new_bends))
+                    
+        return None
     
     def get_candidates(self):
         """

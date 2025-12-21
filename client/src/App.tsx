@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Grid, Wand2, Settings } from 'lucide-react'
 import React from 'react'
 import { LeftSidebar } from './components/LeftSidebar'
 import { RightSidebar } from './components/RightSidebar'
@@ -6,11 +7,15 @@ import { GridCanvas } from './components/GridCanvas'
 import { GeneratorPanel } from './components/GeneratorPanel'
 import { useSettings } from './contexts/SettingsContext'
 import { useNotification } from './contexts/NotificationContext'
+import { useHistory } from './hooks/useHistory'
+
+import { SimulationModal } from './components/SimulationModal'
 
 function App() {
   // Navigation State
   const [activeSidebar, setActiveSidebar] = useState<'panel1' | 'panel2' | 'settings'>('panel1')
   const [activeView, setActiveView] = useState<'grid' | 'generator'>('grid')
+  const [isSimulationOpen, setIsSimulationOpen] = useState(false) // Simulation State
 
   // Tool State
   const [currentTool, setCurrentTool] = useState<'pen' | 'eraser' | 'shape'>('pen')
@@ -19,8 +24,8 @@ function App() {
   // Global Settings
   const { gridSize, backgroundColor, snakePalette } = useSettings()
 
-  // Grid Data State
-  const [gridData, setGridData] = useState<boolean[][]>(() =>
+  // Grid Data State with History
+  const [gridData, setGridData, undoGrid, redoGrid, canUndoGrid, canRedoGrid, resetGridData] = useHistory<boolean[][]>(
     Array(gridSize.height).fill(null).map(() => Array(gridSize.width).fill(false))
   )
 
@@ -41,12 +46,13 @@ function App() {
     tunnelDirection: 'right' // Direction for tunnel arrow
   })
   const [nextItemId, setNextItemId] = useState(0)
-  const [generatorOverlays, setGeneratorOverlays] = useState<{
+
+  // Generator Overlays with History
+  const [generatorOverlays, setGeneratorOverlays, undoOverlays, redoOverlays, canUndoOverlays, canRedoOverlays] = useHistory<{
     arrows: { id: number, row: number, col: number, direction: string, color: string, path?: { row: number, col: number }[], type?: string, keyId?: number, lockId?: number, snakeId?: number, countdown?: number }[],
     obstacles: { id: number, row: number, col: number, type: string, color?: string, count?: number, cells?: { row: number, col: number }[], direction?: string, snakeId?: number, keySnakeId?: number, lockedSnakeId?: number, countdown?: number }[]
   }>({ arrows: [], obstacles: [] })
 
-  // Callback ref to auto-add obstacle from LeftSidebar  
   // Callback ref to auto-add obstacle from LeftSidebar  
   const obstacleTypeUsedCallback = React.useRef<((data: { type: string, row: number, col: number, color?: string, count?: number, keySnakeId?: number, lockedSnakeId?: number }) => void) | null>(null)
   const obstacleUpdateCallback = React.useRef<((row: number, col: number, updates: any) => void) | null>(null)
@@ -54,22 +60,41 @@ function App() {
 
   const { addNotification } = useNotification()
 
-  // Sync Grid Data when Grid Size changes
+  // Sync Grid Data when Grid Size changes (Reset logic)
   useEffect(() => {
-    setGridData(prev => {
-      // Create new grid with new dimensions
-      const newGrid = Array(gridSize.height).fill(null).map(() => Array(gridSize.width).fill(false))
+    // Create new grid with new dimensions
+    const newGrid = Array(gridSize.height).fill(null).map(() => Array(gridSize.width).fill(false))
+    // We purposefully reset history here as resizing invalidates old coords
+    resetGridData(newGrid)
+  }, [gridSize.width, gridSize.height, resetGridData])
 
-      // Copy existing data where possible (optional nice-to-have, but for now simple reset/resize logic)
-      // If we want to preserve data:
-      for (let r = 0; r < Math.min(prev.length, gridSize.height); r++) {
-        for (let c = 0; c < Math.min(prev[0].length, gridSize.width); c++) {
-          newGrid[r][c] = prev[r][c]
+  // Global Undo/Redo Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl+Z or Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          // Redo
+          if (activeView === 'grid' && canRedoGrid) redoGrid()
+          if (activeView === 'generator' && canRedoOverlays) redoOverlays()
+        } else {
+          // Undo
+          if (activeView === 'grid' && canUndoGrid) undoGrid()
+          if (activeView === 'generator' && canUndoOverlays) undoOverlays()
         }
       }
-      return newGrid
-    })
-  }, [gridSize.width, gridSize.height])
+      // Check for Ctrl+Y or Cmd+Y (Redo alternative)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault()
+        if (activeView === 'grid' && canRedoGrid) redoGrid()
+        if (activeView === 'generator' && canRedoOverlays) redoOverlays()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeView, canUndoGrid, canRedoGrid, canUndoOverlays, canRedoOverlays, undoGrid, redoGrid, undoOverlays, redoOverlays])
 
   const handlePanelChange = (panel: 'panel1' | 'panel2' | 'settings') => {
     setActiveSidebar(panel)
@@ -473,16 +498,18 @@ function App() {
         onObstacleAdd={handleAddObstacle}
         nextItemId={nextItemId}
         setNextItemId={setNextItemId}
+        gridData={gridData}
+        setGridData={setGridData}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className="h-[72.5px] bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6">
-          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
-            {activeView === 'grid' && '📐 Grid Editor'}
-            {activeView === 'generator' && '🎮 Level Generator'}
-            {activeSidebar === 'settings' && ' (Settings Mode)'}
+          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 flex items-center gap-3">
+            {activeView === 'grid' && <><Grid className="text-purple-500" /> Grid Editor</>}
+            {activeView === 'generator' && <><Wand2 className="text-purple-500" /> Level Generator</>}
+            {activeSidebar === 'settings' && <><Settings className="text-purple-500" /> Settings Mode</>}
           </h1>
         </div>
 
@@ -546,8 +573,19 @@ function App() {
           generatorOverlays={generatorOverlays}
           onClearOverlays={handleClearOverlays}
           onImportJson={handleImportJson}
+          onSimulate={() => setIsSimulationOpen(true)}
         />
       )}
+
+      <SimulationModal
+        isOpen={isSimulationOpen}
+        onClose={() => setIsSimulationOpen(false)}
+        rows={gridSize.height}
+        cols={gridSize.width}
+        gridData={gridData}
+        snakes={generatorOverlays.arrows}
+        obstacles={generatorOverlays.obstacles}
+      />
     </div>
   )
 }

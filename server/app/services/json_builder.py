@@ -1,5 +1,6 @@
 def create_level_json(snakes, obstacles_data, rows, cols, color_palette):
     level_data = []
+    item_id = 0  # Counter for itemID
     
     # Grid center logic for relative positioning
     center_r = rows // 2
@@ -24,11 +25,13 @@ def create_level_json(snakes, obstacles_data, rows, cols, color_palette):
              pass
              
         level_data.append({
+            "itemID": item_id,
             "itemType": "snake",
             "position": pos_objs,
             "colorID": color_idx,
             "itemValueConfig": 0 
         })
+        item_id += 1
         
     # 2. Add Obstacles
     processed_tunnels = set()
@@ -38,18 +41,22 @@ def create_level_json(snakes, obstacles_data, rows, cols, color_palette):
         
         if o_type == 'wall':
             level_data.append({
+                "itemID": item_id,
                 "itemType": "wall",
                 "position": [to_pos(r, c)],
                 "colorID": None,
                 "itemValueConfig": None
             })
+            item_id += 1
         elif o_type == 'wall_break':
             level_data.append({
+                "itemID": item_id,
                 "itemType": "wallBreak",
                 "position": [to_pos(r, c)],
                 "colorID": None,
                 "itemValueConfig": { "count": data.get('count', 3) }
             })
+            item_id += 1
         elif o_type == 'hole':
              # Find color ID
              c_idx = None
@@ -57,11 +64,13 @@ def create_level_json(snakes, obstacles_data, rows, cols, color_palette):
                  try: c_idx = color_palette.index(data['color'])
                  except: pass
              level_data.append({
+                "itemID": item_id,
                 "itemType": "hole",
                 "position": [to_pos(r, c)],
                 "colorID": c_idx,
                 "itemValueConfig": None
             })
+             item_id += 1
         elif o_type == 'tunnel':
             # Only process pair once
             if (r, c) in processed_tunnels: continue
@@ -79,10 +88,12 @@ def create_level_json(snakes, obstacles_data, rows, cols, color_palette):
                 elif d_str == 'left': dx, dy = -1, 0
                 
                 level_data.append({
+                    "itemID": item_id,
                     "itemType": "tunel", # Note: Client uses 'tunel' typo
                     "position": [to_pos(r, c), to_pos(partner[0], partner[1])],
                     "colorID": None, 
                     "itemValueConfig": { "directX": dx, "directY": dy }
                 })
+                item_id += 1
         
     return level_data

@@ -1,6 +1,8 @@
 import random
 from .base import BaseStrategy
+
 from ..utils import get_neighbors
+from .. import optimized_ops # Import Numba ops
 
 class LayeredStrategy(BaseStrategy):
     # Set to False in SmartDynamicStrategy to disable bonus fill
@@ -27,6 +29,7 @@ class LayeredStrategy(BaseStrategy):
                 path = self.find_solvable_path(start_pos, min_len, max_len, min_bends, max_bends)
                 if path:
                     self.occupied.update(path)
+                    for r, c in path: self.grid_array[r, c] = 1 # Sync Grid Array
                     color = random.choice(self.color_list) if self.color_list else "#00FF00"
                     self.snakes.append({
                         "path": path,
@@ -62,11 +65,11 @@ class LayeredStrategy(BaseStrategy):
         bonus_snakes = 0
         max_bonus = 100
         
-        # Passes: Standard -> Short -> Tiny
+        # Passes: Standard -> Standard (Retry)
+        # User requested strict adherence to min_len.
         passes = [
             (min_len, max_len, "Pass 1: Standard"),
-            (2, max_len, "Pass 2: Short"),
-            (2, min(4, max_len), "Pass 3: Tiny"),
+            (min_len, max_len, "Pass 2: Review"),
         ]
         
         for pass_min, pass_max, pass_name in passes:
@@ -120,9 +123,10 @@ class LayeredStrategy(BaseStrategy):
                     
                     old_sort = self.sort_neighbors
                     # Sort neighbors by "Constrainedness" to tightly pack
+                    # Use Numba Optimized Count
                     self.sort_neighbors = lambda nbs, path: sorted(
                         nbs, 
-                        key=lambda n: count_free_neighbors(n[0], n[1], self.rows, self.cols, self.occupied | set(path)) + random.random()
+                        key=lambda n: optimized_ops.count_free_neighbors_numba(self.rows, self.cols, self.grid_array, n[0], n[1]) + random.random()
                     )
                     
                     path = self.find_solvable_path(start, pass_min, pass_max, min_bends, max_bends)
@@ -131,6 +135,7 @@ class LayeredStrategy(BaseStrategy):
                     
                     if path:
                         self.occupied.update(path)
+                        for r, c in path: self.grid_array[r, c] = 1 # Sync Grid Array
                         color = random.choice(self.color_list) if self.color_list else "#00FF00"
                         self.snakes.append({
                             "path": path,
@@ -156,132 +161,43 @@ class LayeredStrategy(BaseStrategy):
 
     def compute_distance_map(self):
         """
-        Computes BFS distance from 'Exits' (Boundary + Existing Occupied Cells)
-        for all empty cells.
-        Returns: Dict { (r,c): distance }
-        Distance 0 = Adjacent to exit/occupied.
-        High Distance = Deep inside.
+        Computes BFS distance from 'Exits' using Numba optimization.
         """
+        # 1. Run BFS via Numba (Fast C-speed)
+        dist_arr = optimized_ops.bfs_dist_map_numba(self.rows, self.cols, self.grid_array)
+        
+        # 2. Convert Array back to Dict for legacy compatibility
+        # (Optimizing SmartDynamic to use Array directly would be even faster)
         dist_map = {}
-        queue = []
-        visited = set()
-        
-        # Initialize queue with all virtual "exits"
-        # Cells adjacent to boundary or occupied cells have distance 1?
-        # Let's say: "Exit" is distance 0.
-        # Neighbors of Exit are distance 1.
-        
-        # Add all "Boundary Neighbors" and "Occupied Neighbors" to queue
         for r in range(self.rows):
             for c in range(self.cols):
-                if (r, c) in self.occupied or (r,c) in self.obstacles_map:
-                    continue
-                
-                # Check if it touches boundary or occupied
-                is_exit_neighbor = False
-                
-                # Boundary check
-                if r == 0 or r == self.rows-1 or c == 0 or c == self.cols-1:
-                    is_exit_neighbor = True
-                else:
-                    # Check neighbors for occupied/obstacle obstacles are blocking?
-                    # Obstacles are just like walls.
-                    # Snake Occupied cells are blocking? 
-                    # No, strict solvability says we can exit via snake BODY (if we assume it moves away?)
-                    # Wait, our `is_exitable` raycast checks `if in self.occupied: return False`.
-                    # So current logic treats occupied snakes as BLOCKS.
-                    # This means we layer ON TOP.
-                    # So previous snakes are effectively Walls for the new snake.
-                    # So Distance Map should treat them as Walls.
-                    pass
-                
-                if is_exit_neighbor:
-                    dist_map[(r, c)] = 1
-                    queue.append((r, c))
-                    visited.add((r, c))
-
-        # Run BFS
-        head = 0
-        while head < len(queue):
-            curr = queue[head]
-            head += 1
-            d = dist_map[curr]
-            
-            for n in get_neighbors(curr[0], curr[1], self.rows, self.cols):
-                if n not in visited and n not in self.occupied and n not in self.obstacles_map:
-                    visited.add(n)
-                    dist_map[n] = d + 1
-                    queue.append(n)
-                    
+                 d = dist_arr[r, c]
+                 if d != -1:
+                     dist_map[(r, c)] = d
         return dist_map
 
-    def find_solvable_path(self, start_pos, min_len, max_len, min_bends, max_bends):
-        # DFS to find a path that is STRICTLY EXITABLE
-        self.found_path = None
-        self.nodes_visited = 0
-        MAX_NODES = 500 # Fail fast optimization
+    # _check_and_add_exit is no longer needed with Numba logic
+
+    def find_solvable_path(self, start_pos, min_len, max_len, min_bends, max_bends, heuristic_mode=0):
+        # Delegate to Numba DFS (Ultra Fast)
+        success, path = optimized_ops.dfs_numba(
+            self.rows, self.cols, self.grid_array, 
+            start_pos[0], start_pos[1], 
+            min_len, max_len, min_bends, max_bends, 
+            max_nodes=1000, # Increased limit since it's fast now
+            heuristic_mode=heuristic_mode
+        )
         
-        def dfs(curr, path, bends, last_dir):
-            if self.found_path: return True
-            
-            self.nodes_visited += 1
-            if self.nodes_visited > MAX_NODES: return False
-            
-            path_len = len(path)
-            
-            if path_len >= min_len:
-                if self.is_exitable(curr, last_dir):
-                    # Found one!
-                    should_stop = False
-                    if path_len >= max_len: should_stop = True
-                    elif random.random() < 0.3: should_stop = True 
-                    
-                    if should_stop:
-                        self.found_path = path
-                        return True
-            
-            if path_len >= max_len: return False
-            if bends > max_bends: return False
-
-            nbs = get_neighbors(curr[0], curr[1], self.rows, self.cols)
-            nbs = self.sort_neighbors(nbs, path)
-            
-            for n in nbs:
-                if self.is_valid(n[0], n[1]) and n not in path:
-                    new_dir = (n[0] - curr[0], n[1] - curr[1])
-                    new_bends = bends
-                    if last_dir and new_dir != last_dir:
-                        new_bends += 1
-                    
-                    if new_bends <= max_bends:
-                        if dfs(n, path + [n], new_bends, new_dir):
-                            return True
-            
-            return False
-
-        dfs(start_pos, [start_pos], 0, None)
-        return self.found_path
+        if success:
+            return path
+        return None
 
     def is_exitable(self, curr, direction):
         if not direction: return False 
         r, c = curr
         dr, dc = direction
-        
-        # Project Ray
-        proj_r, proj_c = r + dr, c + dc
-        while 0 <= proj_r < self.rows and 0 <= proj_c < self.cols:
-            # Check collision with Static Obstacles OR Other Snakes (Occupied)
-            # self.occupied contains ALL previously placed snakes + impediments
-            if (proj_r, proj_c) in self.occupied:
-                return False
-            # Also check obstacles_map explicitly if not in occupied? (occupied should have it)
-            if (proj_r, proj_c) in self.obstacles_map:
-                return False
-
-            proj_r += dr
-            proj_c += dc
-        
-        return True # Hit boundary cleanly 
+        # Numba Raycast
+        return optimized_ops.check_raycast_numba(self.rows, self.cols, self.grid_array, r, c, dr, dc) 
 
     def sort_neighbors(self, nbs, current_path):
         random.shuffle(nbs)
