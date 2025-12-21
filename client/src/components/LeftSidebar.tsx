@@ -1,5 +1,9 @@
 import { Grid, Wand2, Settings, Plus, X, ChevronDown, Sliders, Package, Ban, Palette, FileJson, Copy, Code, AlertTriangle, Trash2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../contexts/SettingsContext'
+import { AnimatedButton } from './AnimatedButton'
+import { CustomSelect } from './CustomSelect'
+import { CompactSelect } from './CompactSelect'
 import { useNotification } from '../contexts/NotificationContext'
 import { useState, useEffect } from 'react'
 
@@ -21,6 +25,7 @@ interface LeftSidebarProps {
     gridData?: boolean[][]
     setGridData?: (data: boolean[][]) => void
 }
+
 interface ColorDropdownProps {
     color: string
     palette: string[]
@@ -32,36 +37,44 @@ function ColorDropdown({ color, palette, onChange }: ColorDropdownProps) {
     const index = palette.indexOf(color)
 
     return (
-        <div className="relative w-24">
+        <div className="relative">
             <button
-                className="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white flex items-center justify-between hover:border-gray-500 transition-colors"
+                className="w-24 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white flex items-center justify-between hover:border-gray-500 transition-colors"
                 style={{ borderLeft: `8px solid ${color}` }}
                 onClick={() => setIsOpen(!isOpen)}
             >
                 <span className="truncate">Color {index !== -1 ? index + 1 : '?'}</span>
-                <ChevronDown size={12} className="text-gray-400" />
+                <ChevronDown size={12} className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {isOpen && (
-                <>
-                    <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-                    <div className="absolute top-full right-0 w-48 bg-gray-800 border border-gray-600 rounded mt-1 z-20 shadow-xl max-h-48 overflow-y-auto">
-                        {palette.map((c, i) => (
-                            <button
-                                key={i}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-700 text-left transition-colors border-b border-gray-700/50 last:border-0"
-                                onClick={() => {
-                                    onChange(c)
-                                    setIsOpen(false)
-                                }}
-                            >
-                                <div className="w-3 h-3 rounded-full shrink-0 border border-gray-500" style={{ backgroundColor: c }} />
-                                <span className="text-xs text-gray-200">Color {i + 1} <span className="text-gray-500 font-mono ml-1">({c})</span></span>
-                            </button>
-                        ))}
-                    </div>
-                </>
-            )}
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+                        <motion.div
+                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                            transition={{ duration: 0.15, ease: "easeOut" }}
+                            className="absolute top-full right-0 w-48 bg-gray-800 border border-gray-600 rounded mt-1 z-20 shadow-xl max-h-48 overflow-y-auto origin-top-right"
+                        >
+                            {palette.map((c, i) => (
+                                <button
+                                    key={i}
+                                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-700 text-left transition-colors border-b border-gray-700/50 last:border-0"
+                                    onClick={() => {
+                                        onChange(c)
+                                        setIsOpen(false)
+                                    }}
+                                >
+                                    <div className="w-3 h-3 rounded-full shrink-0 border border-gray-500" style={{ backgroundColor: c }} />
+                                    <span className="text-xs text-gray-200">Color {i + 1} <span className="text-gray-500 font-mono ml-1">({c})</span></span>
+                                </button>
+                            ))}
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     )
 }
@@ -438,15 +451,19 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             key={panel.id}
                             onClick={() => onPanelChange(panel.id)}
                             className={`
-                flex-1 flex flex-col items-center justify-center p-2 rounded-lg gap-1 transition-all
-                ${isActive
-                                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50'
-                                    : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-white'
-                                }
-              `}
+                                relative isolate flex-1 flex flex-col items-center justify-center p-2 rounded-lg gap-1 transition-colors
+                                ${isActive ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}
+                            `}
                         >
-                            <Icon size={20} />
-                            <span className="text-xs font-medium">{panel.label}</span>
+                            {isActive && (
+                                <motion.div
+                                    layoutId="sidebar-panel-active"
+                                    className="absolute inset-0 bg-purple-600 rounded-lg shadow-lg shadow-purple-900/50 -z-10"
+                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                />
+                            )}
+                            <Icon size={20} className="relative z-10" />
+                            <span className="relative z-10 text-xs font-medium">{panel.label}</span>
                         </button>
                     )
                 })}
@@ -463,11 +480,11 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
 
                 {activePanel === 'panel2' && (
                     <div className="space-y-6">
-                        <button
+                        <AnimatedButton
                             onClick={handleGenerateClick}
                             disabled={isGenerating}
                             className={`w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg text-white font-bold shadow-lg 
-                            ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-purple-900/50 transform hover:scale-[1.02] transition-all'} flex items-center justify-center gap-2`}
+                            ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-purple-900/50'} flex items-center justify-center gap-2`}
                         >
                             {isGenerating ? (
                                 <>
@@ -478,7 +495,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     <Wand2 size={18} /> Generate Level
                                 </>
                             )}
-                        </button>
+                        </AnimatedButton>
 
 
 
@@ -500,19 +517,18 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             </div>
 
                             <div className="relative">
-                                <select
+                                <CustomSelect
                                     value={distributionStrategy}
-                                    onChange={(e) => setDistributionStrategy(e.target.value)}
-                                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
-                                >
-                                    <option value="SMART_DYNAMIC">Smart Dynamic</option>
-                                    <option value="RANDOM_ADAPTIVE">Random Adaptive</option>
-                                    <option value="EDGE_HUGGER">Edge Hugger</option>
-                                    <option value="MAX_CLUMP">Max Clump</option>
-                                    <option value="SPIRAL_FILL">Spiral Fill</option>
-                                    <option value="SYMMETRICAL">Symmetrical</option>
-                                </select>
-                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                    onChange={(val) => setDistributionStrategy(val)}
+                                    options={[
+                                        { value: 'SMART_DYNAMIC', label: 'Smart Dynamic' },
+                                        { value: 'RANDOM_ADAPTIVE', label: 'Random Adaptive' },
+                                        { value: 'EDGE_HUGGER', label: 'Edge Hugger' },
+                                        { value: 'MAX_CLUMP', label: 'Max Clump' },
+                                        { value: 'SPIRAL_FILL', label: 'Spiral Fill' },
+                                        { value: 'SYMMETRICAL', label: 'Symmetrical' },
+                                    ]}
+                                />
                             </div>
 
                             {/* Strategy Config */}
@@ -640,32 +656,30 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs text-gray-400">Direction</label>
-                                        <div className="relative">
-                                            <select
+                                        <div className="relative w-32">
+                                            <CompactSelect
                                                 value={strategyConfig.direction}
-                                                onChange={(e) => updateConfig('direction', e.target.value)}
-                                                className="w-32 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
-                                            >
-                                                <option value="random">Random</option>
-                                                <option value="clockwise">Clockwise</option>
-                                                <option value="counter_clockwise">Counter CW</option>
-                                            </select>
-                                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                onChange={(val) => updateConfig('direction', val)}
+                                                options={[
+                                                    { value: 'random', label: 'Random' },
+                                                    { value: 'clockwise', label: 'Clockwise' },
+                                                    { value: 'counter_clockwise', label: 'Counter CW' },
+                                                ]}
+                                            />
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs text-gray-400">Start From</label>
-                                        <div className="relative">
-                                            <select
+                                        <div className="relative w-32">
+                                            <CompactSelect
                                                 value={strategyConfig.start_from}
-                                                onChange={(e) => updateConfig('start_from', e.target.value)}
-                                                className="w-32 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
-                                            >
-                                                <option value="random">Random</option>
-                                                <option value="center">Center</option>
-                                                <option value="corner">Corner</option>
-                                            </select>
-                                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                onChange={(val) => updateConfig('start_from', val)}
+                                                options={[
+                                                    { value: 'random', label: 'Random' },
+                                                    { value: 'center', label: 'Center' },
+                                                    { value: 'corner', label: 'Corner' },
+                                                ]}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -684,34 +698,32 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs text-gray-400">Symmetry Type</label>
-                                        <div className="relative">
-                                            <select
+                                        <div className="relative w-32">
+                                            <CompactSelect
                                                 value={strategyConfig.symmetry_type}
-                                                onChange={(e) => updateConfig('symmetry_type', e.target.value)}
-                                                className="w-32 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
-                                            >
-                                                <option value="random">Random</option>
-                                                <option value="horizontal">Horizontal</option>
-                                                <option value="vertical">Vertical</option>
-                                                <option value="both">Both</option>
-                                                <option value="radial">Radial</option>
-                                            </select>
-                                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                onChange={(val) => updateConfig('symmetry_type', val)}
+                                                options={[
+                                                    { value: 'random', label: 'Random' },
+                                                    { value: 'horizontal', label: 'Horizontal' },
+                                                    { value: 'vertical', label: 'Vertical' },
+                                                    { value: 'both', label: 'Both' },
+                                                    { value: 'radial', label: 'Radial' },
+                                                ]}
+                                            />
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <label className="text-xs text-gray-400">Fallback</label>
-                                        <div className="relative">
-                                            <select
+                                        <div className="relative w-32">
+                                            <CompactSelect
                                                 value={strategyConfig.fallback_strategy}
-                                                onChange={(e) => updateConfig('fallback_strategy', e.target.value)}
-                                                className="w-32 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
-                                            >
-                                                <option value="random">Random</option>
-                                                <option value="smart_dynamic">Smart Dynamic</option>
-                                                <option value="edge_hugger">Edge Hugger</option>
-                                            </select>
-                                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                onChange={(val) => updateConfig('fallback_strategy', val)}
+                                                options={[
+                                                    { value: 'random', label: 'Random' },
+                                                    { value: 'smart_dynamic', label: 'Smart Dynamic' },
+                                                    { value: 'edge_hugger', label: 'Edge Hugger' },
+                                                ]}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -729,12 +741,12 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     <input
                                         type="number" min="2" max="20" value={lengthRange.min}
                                         onChange={e => setLengthRange({ ...lengthRange, min: Number(e.target.value) })}
-                                        className="w-full bg-gray-900/50 text-white text-xs px-2 py-1 rounded border border-gray-600"
+                                        className="w-full bg-gray-900/50 text-white text-xs px-2 py-1 rounded-lg border border-gray-600"
                                     />
                                     <input
                                         type="number" min="2" max="30" value={lengthRange.max}
                                         onChange={e => setLengthRange({ ...lengthRange, max: Number(e.target.value) })}
-                                        className="w-full bg-gray-900/50 text-white text-xs px-2 py-1 rounded border border-gray-600"
+                                        className="w-full bg-gray-900/50 text-white text-xs px-2 py-1 rounded-lg border border-gray-600"
                                     />
                                 </div>
                             </div>
@@ -745,12 +757,12 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     <input
                                         type="number" min="0" max="10" value={bendsRange.min}
                                         onChange={e => setBendsRange({ ...bendsRange, min: Number(e.target.value) })}
-                                        className="w-full bg-gray-900/50 text-white text-xs px-2 py-1 rounded border border-gray-600"
+                                        className="w-full bg-gray-900/50 text-white text-xs px-2 py-1 rounded-lg border border-gray-600"
                                     />
                                     <input
                                         type="number" min="0" max="10" value={bendsRange.max}
                                         onChange={e => setBendsRange({ ...bendsRange, max: Number(e.target.value) })}
-                                        className="w-full bg-gray-900/50 text-white text-xs px-2 py-1 rounded border border-gray-600"
+                                        className="w-full bg-gray-900/50 text-white text-xs px-2 py-1 rounded-lg border border-gray-600"
                                     />
                                 </div>
                             </div>
@@ -770,26 +782,25 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             {/* Add Obstacle Control */}
                             <div className="flex gap-2">
                                 <div className="relative flex-1">
-                                    <select
+                                    <CustomSelect
                                         value={selectedObstacleType}
-                                        onChange={(e) => setSelectedObstacleType(e.target.value as ObstacleType)}
-                                        className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-xs text-white appearance-none focus:outline-none focus:border-purple-400 cursor-pointer"
-                                    >
-                                        <option value="wall">Wall</option>
-                                        <option value="wall_break">Wall Break</option>
-                                        <option value="hole">Hole</option>
-                                        <option value="tunnel">Tunnel</option>
-                                        <option value="iced_snake">Iced Snake</option>
-                                        <option value="key_snake">Key Snake</option>
-                                    </select>
-                                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                        onChange={(val) => setSelectedObstacleType(val as ObstacleType)}
+                                        options={[
+                                            { value: 'wall', label: 'Wall' },
+                                            { value: 'wall_break', label: 'Wall Break' },
+                                            { value: 'hole', label: 'Hole' },
+                                            { value: 'tunnel', label: 'Tunnel' },
+                                            { value: 'iced_snake', label: 'Iced Snake' },
+                                            { value: 'key_snake', label: 'Key Snake' },
+                                        ]}
+                                    />
                                 </div>
-                                <button
+                                <AnimatedButton
                                     onClick={() => addObstacle(selectedObstacleType)}
                                     className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-purple-900/50"
                                 >
                                     Add
-                                </button>
+                                </AnimatedButton>
                             </div>
 
                             {/* List Items */}
@@ -892,16 +903,18 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                             {obs.type === 'tunnel' && (
                                                 <div className="flex items-center justify-between gap-2">
                                                     <span className="text-xs text-gray-400">Direction</span>
-                                                    <select
-                                                        value={obs.direction || 'right'}
-                                                        onChange={(e) => updateObstacle(obs.id, { direction: e.target.value })}
-                                                        className="w-26 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white focus:border-purple-500 focus:outline-none"
-                                                    >
-                                                        <option value="up">↑ Up</option>
-                                                        <option value="down">↓ Down</option>
-                                                        <option value="left">← Left</option>
-                                                        <option value="right">→ Right</option>
-                                                    </select>
+                                                    <div className="w-24">
+                                                        <CustomSelect
+                                                            value={obs.direction || 'right'}
+                                                            onChange={(val) => updateObstacle(obs.id, { direction: val })}
+                                                            options={[
+                                                                { value: 'up', label: '↑ Up' },
+                                                                { value: 'down', label: '↓ Down' },
+                                                                { value: 'left', label: '← Left' },
+                                                                { value: 'right', label: '→ Right' },
+                                                            ]}
+                                                        />
+                                                    </div>
                                                 </div>
                                             )}
 

@@ -3,6 +3,8 @@ import { ColorSelect } from './ColorSelect'
 import { Pencil, Eraser, Shapes, Upload, Trash2, Download, Copy, FileJson, Info, ArrowUpRight, Ban, FileUp, ClipboardPaste, Settings, Play, Calculator } from 'lucide-react'
 import { useSettings } from '../contexts/SettingsContext'
 import { useNotification } from '../contexts/NotificationContext'
+import { AnimatedButton } from './AnimatedButton'
+import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 
 interface RightSidebarProps {
@@ -308,14 +310,6 @@ export function RightSidebar({
                 {/* Top Toggle Bar */}
                 <div className="p-4 border-b border-gray-700">
                     <div className="relative flex w-full h-10 bg-gray-900/50 rounded-lg p-1 isolate">
-                        {/* Sliding Background */}
-                        <div
-                            className={`
-                                absolute top-1 bottom-1 w-[calc(50%-4px)] bg-purple-600 rounded-md shadow-sm transition-all duration-300 ease-out z-0
-                                ${activeTab === 'tools' ? 'left-1' : 'left-[calc(50%+2px)]'}
-                            `}
-                        />
-
                         <button
                             onClick={() => setActiveTab('tools')}
                             className={`
@@ -323,6 +317,13 @@ export function RightSidebar({
                                 ${activeTab === 'tools' ? 'text-white' : 'text-gray-400 hover:text-gray-300'}
                             `}
                         >
+                            {activeTab === 'tools' && (
+                                <motion.div
+                                    layoutId="rs-tab"
+                                    className="absolute inset-[3px] bg-purple-600 rounded-md shadow-sm -z-10"
+                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                />
+                            )}
                             <Pencil size={14} className="mr-2" />
                             <span className="translate-y-[1px]">Tools</span>
                         </button>
@@ -333,6 +334,13 @@ export function RightSidebar({
                                 ${activeTab === 'actions' ? 'text-white' : 'text-gray-400 hover:text-gray-300'}
                             `}
                         >
+                            {activeTab === 'actions' && (
+                                <motion.div
+                                    layoutId="rs-tab"
+                                    className="absolute inset-[3px] bg-purple-600 rounded-md shadow-sm -z-10"
+                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                />
+                            )}
                             <Download size={14} className="mr-2" />
                             <span className="translate-y-[1px]">Files</span>
                         </button>
@@ -345,19 +353,6 @@ export function RightSidebar({
                     <div className={activeTab === 'tools' ? 'block animate-in fade-in duration-300' : 'hidden'}>
                         {/* Tool Selection - Matching Editor Tools Layout */}
                         <div className="relative flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl isolate">
-                            {/* Sliding Background */}
-                            {generatorTool !== 'none' && (() => {
-                                const toolIndex = generatorTool === 'arrow' ? 0 : generatorTool === 'obstacle' ? 1 : 2
-                                return (
-                                    <div
-                                        className="absolute top-1.5 bottom-1.5 bg-purple-600 rounded-lg shadow-lg transition-all duration-300 ease-out z-0"
-                                        style={{
-                                            width: 'calc((100% - 12px - 16px) / 3)',
-                                            left: `calc(6px + ${toolIndex} * ((100% - 12px - 16px) / 3 + 8px))`
-                                        }}
-                                    />
-                                )
-                            })()}
                             {generatorTools.filter(t => t.id !== 'none').map(tool => (
                                 <button
                                     key={tool.id}
@@ -371,6 +366,13 @@ export function RightSidebar({
                                         }
                                     `}
                                 >
+                                    {generatorTool === tool.id && (
+                                        <motion.div
+                                            layoutId="rs-tool-gen"
+                                            className="absolute inset-0 bg-purple-600 rounded-lg shadow-lg -z-10"
+                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                        />
+                                    )}
                                     {tool.icon && <tool.icon size={20} />}
                                     <span className="text-xs font-medium">{tool.label}</span>
                                 </button>
@@ -514,18 +516,18 @@ export function RightSidebar({
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
                                 <Trash2 size={16} /> <span className="translate-y-[1px]">Actions</span>
                             </h3>
-                            <button
+                            <AnimatedButton
                                 onClick={onClearOverlays}
                                 className="w-full py-2 bg-red-500/10 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                             >
                                 <Trash2 size={14} /> <span className="translate-y-[1px]">Clear All</span>
-                            </button>
-                            <button
+                            </AnimatedButton>
+                            <AnimatedButton
                                 onClick={onSimulate}
                                 className="w-full mt-2 py-2 bg-green-500/10 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                             >
                                 <Play size={14} /> <span className="translate-y-[1px]">Simulate Level</span>
-                            </button>
+                            </AnimatedButton>
                         </div>
 
                         {/* Difficulty Analysis */}
@@ -534,7 +536,7 @@ export function RightSidebar({
                                 <Calculator size={16} /> <span className="translate-y-[1px]">Difficulty Analysis</span>
                             </h3>
 
-                            <button
+                            <AnimatedButton
                                 onClick={handleCalculateDifficulty}
                                 disabled={!generatorOverlays || isCalculating}
                                 className={`w-full py-2 bg-orange-500/10 text-orange-400 border border-orange-500/50 rounded-lg hover:bg-orange-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none ${(!generatorOverlays || isCalculating) ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -545,7 +547,7 @@ export function RightSidebar({
                                     <Calculator size={14} />
                                 )}
                                 Calculate Score
-                            </button>
+                            </AnimatedButton>
 
                             {difficultyData && (
                                 <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -603,7 +605,7 @@ export function RightSidebar({
                                     <Upload size={16} /> <span className="translate-y-[1px]">Import</span>
                                 </h3>
 
-                                <button
+                                <AnimatedButton
                                     onClick={() => {
                                         const input = document.createElement('input')
                                         input.type = 'file'
@@ -626,9 +628,9 @@ export function RightSidebar({
                                     className="w-full py-2 bg-blue-500/10 text-blue-400 border border-blue-500/50 rounded-lg hover:bg-blue-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none"
                                 >
                                     <FileUp size={14} /> Import from File
-                                </button>
+                                </AnimatedButton>
 
-                                <button
+                                <AnimatedButton
                                     onClick={async () => {
                                         try {
                                             const text = await navigator.clipboard.readText()
@@ -642,7 +644,7 @@ export function RightSidebar({
                                     className="w-full py-2 bg-green-500/10 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none"
                                 >
                                     <ClipboardPaste size={14} /> Import from Clipboard
-                                </button>
+                                </AnimatedButton>
                             </div>
 
                             {/* Export */}
@@ -654,7 +656,7 @@ export function RightSidebar({
                                     Export arrows and obstacles drawn on grid
                                 </p>
 
-                                <button
+                                <AnimatedButton
                                     onClick={handleDownloadDrawnJson}
                                     disabled={!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0)}
                                     className={`w-full py-2 bg-purple-500/10 text-purple-400 border border-purple-500/50 rounded-lg hover:bg-purple-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none ${(!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0))
@@ -663,9 +665,9 @@ export function RightSidebar({
                                         }`}
                                 >
                                     <Download size={14} /> Download JSON
-                                </button>
+                                </AnimatedButton>
 
-                                <button
+                                <AnimatedButton
                                     onClick={handleExportDrawnJson}
                                     disabled={!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0)}
                                     className={`w-full py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/50 rounded-lg hover:bg-emerald-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none ${(!generatorOverlays || (generatorOverlays.arrows.length === 0 && generatorOverlays.obstacles.length === 0))
@@ -674,7 +676,7 @@ export function RightSidebar({
                                         }`}
                                 >
                                     <Copy size={14} /> Copy JSON
-                                </button>
+                                </AnimatedButton>
 
                                 {generatorOverlays && (
                                     <p className="text-[10px] text-gray-400 text-center">
@@ -730,19 +732,6 @@ export function RightSidebar({
 
                     {/* Tool Selection */}
                     <div className="relative flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl isolate">
-                        {/* Sliding Background */}
-                        {(() => {
-                            const toolIndex = currentTool === 'pen' ? 0 : currentTool === 'eraser' ? 1 : 2
-                            return (
-                                <div
-                                    className="absolute top-1.5 bottom-1.5 bg-purple-600 rounded-lg shadow-lg transition-all duration-300 ease-out z-0"
-                                    style={{
-                                        width: 'calc((100% - 12px - 16px) / 3)',
-                                        left: `calc(6px + ${toolIndex} * ((100% - 12px - 16px) / 3 + 8px))`
-                                    }}
-                                />
-                            )
-                        })()}
                         {tools.map(tool => {
                             const Icon = tool.icon
                             const isActive = currentTool === tool.id
@@ -759,6 +748,13 @@ export function RightSidebar({
                                         }
                                     `}
                                 >
+                                    {isActive && (
+                                        <motion.div
+                                            layoutId="rs-tool-editor"
+                                            className="absolute inset-0 bg-purple-600 rounded-lg shadow-lg -z-10"
+                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                        />
+                                    )}
                                     <Icon size={20} />
                                     <span className="text-xs font-medium">{tool.label}</span>
                                 </button>
@@ -822,24 +818,24 @@ export function RightSidebar({
                                 <Trash2 size={16} /> <span className="translate-y-[1px]">Actions</span>
                             </h3>
                             <div className="space-y-2">
-                                <button
+                                <AnimatedButton
                                     onClick={onClearGrid}
                                     className="w-full py-2 bg-red-500/10 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                                 >
                                     <Trash2 size={14} /> Clear Grid
-                                </button>
-                                <button
+                                </AnimatedButton>
+                                <AnimatedButton
                                     onClick={onCopyJson}
                                     className="w-full py-2 bg-blue-500/10 text-blue-400 border border-blue-500/50 rounded-lg hover:bg-blue-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                                 >
                                     <Copy size={14} /> Copy JSON
-                                </button>
-                                <button
+                                </AnimatedButton>
+                                <AnimatedButton
                                     onClick={onCopyJsonToGenerator}
                                     className="w-full py-2 bg-purple-500/10 text-purple-400 border border-purple-500/50 rounded-lg hover:bg-purple-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                                 >
                                     <FileJson size={14} /> Copy to Generator
-                                </button>
+                                </AnimatedButton>
                             </div>
                         </div>
                     </div>

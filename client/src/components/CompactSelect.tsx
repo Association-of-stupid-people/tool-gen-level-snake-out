@@ -7,20 +7,20 @@ interface Option {
     label: string
 }
 
-interface CustomSelectProps {
+interface CompactSelectProps {
     value: string | number
     options: Option[]
     onChange: (value: string) => void
     placeholder?: string
 }
 
-// Generic custom dropdown: matches styling of ColorSelect but for text options
-export function CustomSelect({
+// Compact dropdown for strategy configs - smaller text and tighter spacing
+export function CompactSelect({
     value,
     options,
     onChange,
     placeholder = 'Select...'
-}: CustomSelectProps) {
+}: CompactSelectProps) {
     const [isOpen, setIsOpen] = useState(false)
 
     const selectedOption = options.find(opt => opt.value === value)
@@ -30,11 +30,11 @@ export function CustomSelect({
         <div className="relative w-full">
             {/* Button styled like native select */}
             <button
-                className="w-full bg-gray-900/50 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white appearance-none focus:outline-none focus:border-purple-500 flex items-center justify-between transition-colors hover:bg-gray-800/50"
+                className="w-full bg-gray-900/50 border border-gray-600 rounded-lg px-2 py-1 text-xs text-white appearance-none focus:outline-none focus:border-purple-500 flex items-center justify-between transition-colors hover:bg-gray-800/50"
                 onClick={() => setIsOpen(!isOpen)}
             >
                 <span className="truncate">{displayText}</span>
-                <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={12} className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Custom dropdown menu */}

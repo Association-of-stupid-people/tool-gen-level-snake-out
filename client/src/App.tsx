@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Grid, Wand2, Settings } from 'lucide-react'
+import { Grid, Wand2 } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import React from 'react'
 import { LeftSidebar } from './components/LeftSidebar'
 import { RightSidebar } from './components/RightSidebar'
@@ -236,36 +237,48 @@ function App() {
     })
   }
 
-  const handleImageUpload = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = gridSize.width
-        canvas.height = gridSize.height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
+  const handleImageUpload = async (file: File) => {
+    console.log('Image upload started:', file.name)
 
-        ctx.drawImage(img, 0, 0, gridSize.width, gridSize.height)
-        const imageData = ctx.getImageData(0, 0, gridSize.width, gridSize.height)
+    try {
+      addNotification('info', 'Processing image...')
 
-        const newGrid = Array(gridSize.height).fill(null).map(() => Array(gridSize.width).fill(false))
+      // Create form data
+      const formData = new FormData()
+      formData.append('image', file)
+      formData.append('width', gridSize.width.toString())
+      formData.append('height', gridSize.height.toString())
+      formData.append('method', 'auto') // Use smart auto-detection
 
-        for (let r = 0; r < gridSize.height; r++) {
-          for (let c = 0; c < gridSize.width; c++) {
-            const idx = (r * gridSize.width + c) * 4
-            const brightness = (imageData.data[idx] + imageData.data[idx + 1] + imageData.data[idx + 2]) / 3
-            if (brightness < 200) {
-              newGrid[r][c] = true
-            }
-          }
-        }
-        setGridData(newGrid)
+      // Call server API
+      const response = await fetch('http://localhost:5000/api/process-image', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (result.error) {
+        console.error('Server error:', result.error)
+        addNotification('error', `Failed: ${result.error}`)
+        return
       }
-      img.src = e.target?.result as string
+
+      // Apply the processed grid
+      const processedGrid = result.grid as boolean[][]
+      setGridData(() => processedGrid)
+
+      const { stats } = result
+      console.log('Image processed:', stats)
+
+      setTimeout(() => {
+        addNotification('success', `Image imported! ${stats.cell_count} cells (${stats.fill_ratio}%) - ${stats.method}`)
+      }, 100)
+
+    } catch (error) {
+      console.error('Image upload error:', error)
+      addNotification('error', 'Failed to process image. Is the server running?')
     }
-    reader.readAsDataURL(file)
   }
 
   const handleClearGrid = () => {
@@ -509,41 +522,59 @@ function App() {
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 flex items-center gap-3">
             {activeView === 'grid' && <><Grid className="text-purple-500" /> Grid Editor</>}
             {activeView === 'generator' && <><Wand2 className="text-purple-500" /> Level Generator</>}
-            {activeSidebar === 'settings' && <><Settings className="text-purple-500" /> Settings Mode</>}
           </h1>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-hidden relative">
-          {activeView === 'grid' && (
-            <GridCanvas
-              gridData={gridData}
-              onCellToggle={handleCellToggle}
-              onBulkCellToggle={handleBulkCellToggle}
-              rows={gridSize.height}
-              cols={gridSize.width}
-              currentTool={currentTool}
-              currentShape={currentShape}
-            />
-          )}
-          {activeView === 'generator' && (
-            <GeneratorPanel
-              isGenerating={isGenerating}
-              jsonInput={jsonInput}
-              gridData={gridData}
-              setGridData={setGridData}
-              generatorTool={generatorTool}
-              generatorSettings={generatorSettings}
-              generatorOverlays={generatorOverlays as any}
-              setGeneratorOverlays={setGeneratorOverlays as any}
-              onObstacleTypeUsed={(data) => obstacleTypeUsedCallback.current?.(data)}
-              onObstacleUpdate={(row, col, updates) => obstacleUpdateCallback.current?.(row, col, updates)}
-              onObstacleDelete={(row, col) => obstacleDeleteCallback.current?.(row, col)}
-              nextItemId={nextItemId}
-              setNextItemId={setNextItemId}
-              onValidate={handleValidateLevel}
-            />
-          )}
+          <AnimatePresence>
+            {activeView === 'grid' && (
+              <motion.div
+                key="grid-view"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0 h-full w-full"
+              >
+                <GridCanvas
+                  gridData={gridData}
+                  onCellToggle={handleCellToggle}
+                  onBulkCellToggle={handleBulkCellToggle}
+                  rows={gridSize.height}
+                  cols={gridSize.width}
+                  currentTool={currentTool}
+                  currentShape={currentShape}
+                />
+              </motion.div>
+            )}
+            {activeView === 'generator' && (
+              <motion.div
+                key="generator-view"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute inset-0 h-full w-full"
+              >
+                <GeneratorPanel
+                  isGenerating={isGenerating}
+                  jsonInput={jsonInput}
+                  gridData={gridData}
+                  setGridData={setGridData}
+                  generatorTool={generatorTool}
+                  generatorSettings={generatorSettings}
+                  generatorOverlays={generatorOverlays as any}
+                  setGeneratorOverlays={setGeneratorOverlays as any}
+                  onObstacleTypeUsed={(data) => obstacleTypeUsedCallback.current?.(data)}
+                  onObstacleUpdate={(row, col, updates) => obstacleUpdateCallback.current?.(row, col, updates)}
+                  onObstacleDelete={(row, col) => obstacleDeleteCallback.current?.(row, col)}
+                  nextItemId={nextItemId}
+                  setNextItemId={setNextItemId}
+                  onValidate={handleValidateLevel}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

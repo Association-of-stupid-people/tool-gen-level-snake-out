@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from app.services.algorithm import generate_level
 from app.services.validator import validate_level
 from app.services.difficulty_calculator import calculate
+from app.services.image_processor import process_image_to_grid, process_image_silhouette, process_image_dark_regions
 import json
 
 api_bp = Blueprint('api', __name__)
@@ -143,4 +144,61 @@ def calculate_difficulty_route():
 
     except Exception as e:
         print(f"DIFFICULTY CALCULATION ERROR: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@api_bp.route('/process-image', methods=['POST'])
+def process_image_route():
+    """
+    Process an uploaded image and convert it to a grid mask.
+    
+    Accepts multipart/form-data with:
+    - image: The image file
+    - width: Grid width (int)
+    - height: Grid height (int)
+    - method: Processing method ('auto', 'silhouette', 'dark_regions')
+    - threshold: Optional brightness threshold (int, 0-255)
+    
+    Returns JSON with:
+    - grid: 2D boolean array
+    - stats: Processing statistics
+    """
+    try:
+        # Get image file
+        if 'image' not in request.files:
+            return jsonify({"error": "No image file provided"}), 400
+        
+        image_file = request.files['image']
+        if image_file.filename == '':
+            return jsonify({"error": "No image selected"}), 400
+        
+        # Get parameters
+        grid_width = int(request.form.get('width', 20))
+        grid_height = int(request.form.get('height', 20))
+        method = request.form.get('method', 'auto')
+        threshold = request.form.get('threshold')
+        
+        if threshold:
+            threshold = int(threshold)
+        
+        # Read image data
+        image_data = image_file.read()
+        
+        # Process based on method
+        if method == 'silhouette':
+            result = process_image_silhouette(image_data, grid_width, grid_height)
+        elif method == 'dark_regions':
+            result = process_image_dark_regions(image_data, grid_width, grid_height, threshold)
+        else:  # 'auto' - smart detection
+            result = process_image_to_grid(image_data, grid_width, grid_height)
+        
+        if "error" in result:
+            return jsonify(result), 400
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        print(f"IMAGE PROCESSING ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500

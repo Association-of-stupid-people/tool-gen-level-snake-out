@@ -3,4 +3,5 @@ Pillow==12.0.0
 flask-cors==5.0.0
 numpy
 numba
-
+opencv-python-headless
+scipy

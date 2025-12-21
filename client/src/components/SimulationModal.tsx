@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, RotateCcw } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 
 // --- Types ---
 interface SimulationModalProps {
@@ -579,65 +580,92 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
     }, [isOpen, gameState, gridData, obstacles, rows, cols, hoveredSnake])
 
-    if (!isOpen) return null
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden max-w-[90vw] max-h-[90vh]">
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                >
+                    <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
+                        className="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden max-w-[90vw] max-h-[90vh]"
+                    >
 
-                {/* Header */}
-                <div className="h-14 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6">
-                    <h2 className="text-white font-bold text-lg flex items-center gap-2">
-                        <span className="text-2xl">🎮</span> <span className="translate-y-[1px]">Simulation Mode</span>
-                    </h2>
+                        {/* Header */}
+                        <div className="h-14 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6">
+                            <h2 className="text-white font-bold text-lg flex items-center gap-2">
+                                <span className="text-2xl">🎮</span> <span className="translate-y-[1px]">Simulation Mode</span>
+                            </h2>
 
-                    <div className="flex items-center gap-4">
-                        <div className="text-gray-400 text-sm">
-                            Moves: <span className="text-white font-mono">{gameState.moveCount}</span>
-                        </div>
+                            <div className="flex items-center gap-4">
+                                <div className="text-gray-400 text-sm">
+                                    Moves: <span className="text-white font-mono">{gameState.moveCount}</span>
+                                </div>
 
-                        <div className="h-6 w-px bg-gray-700 mx-2" />
+                                <div className="h-6 w-px bg-gray-700 mx-2" />
 
-                        <button onClick={resetGame} className="p-2 hover:bg-gray-700 rounded text-yellow-400 transition-colors" title="Reset">
-                            <RotateCcw size={18} />
-                        </button>
+                                <button onClick={resetGame} className="p-2 hover:bg-gray-700 rounded text-yellow-400 transition-colors" title="Reset">
+                                    <RotateCcw size={18} />
+                                </button>
 
-                        <button onClick={onClose} className="p-2 hover:bg-red-500/20 rounded text-gray-400 hover:text-red-400 transition-colors">
-                            <X size={20} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Game Canvas */}
-                <div className="flex-1 bg-black relative p-4 flex items-center justify-center overflow-auto">
-                    <canvas
-                        ref={canvasRef}
-                        width={Math.min(1200, window.innerWidth - 100)}
-                        height={Math.min(800, window.innerHeight - 200)}
-                        className="max-w-full max-h-full cursor-pointer"
-                        onClick={handleCanvasClick}
-                        onMouseMove={handleCanvasMove}
-                        onMouseLeave={() => setHoveredSnake(null)}
-                    />
-
-                    {/* Win Overlay */}
-                    {gameState.isComplete && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                            <div className="bg-green-500/20 border-2 border-green-500 rounded-xl p-8 text-center">
-                                <div className="text-6xl mb-4">🎉</div>
-                                <div className="text-3xl font-bold text-green-400 mb-2">Level Complete!</div>
-                                <div className="text-gray-300">Moves: {gameState.moveCount}</div>
+                                <button onClick={onClose} className="p-2 hover:bg-red-500/20 rounded text-gray-400 hover:text-red-400 transition-colors">
+                                    <X size={20} />
+                                </button>
                             </div>
                         </div>
-                    )}
 
-                    {/* Instructions */}
-                    <div className="absolute bottom-6 left-6 bg-gray-800/80 border border-gray-700 rounded px-3 py-2 text-xs text-gray-300">
-                        <div>💡 <strong>Tap</strong> any snake to move it</div>
-                        <div className="mt-1">Movable snakes will <span className="text-green-400">glow</span> on hover</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                        {/* Game Canvas */}
+                        <div className="flex-1 bg-black relative p-4 flex items-center justify-center overflow-auto">
+                            <canvas
+                                ref={canvasRef}
+                                width={Math.min(1200, window.innerWidth - 100)}
+                                height={Math.min(800, window.innerHeight - 200)}
+                                className="max-w-full max-h-full cursor-pointer"
+                                onClick={handleCanvasClick}
+                                onMouseMove={handleCanvasMove}
+                                onMouseLeave={() => setHoveredSnake(null)}
+                            />
+
+                            {/* Win Overlay */}
+                            <AnimatePresence>
+                                {gameState.isComplete && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+                                    >
+                                        <div className="bg-green-500/20 border-2 border-green-500 rounded-xl p-8 text-center">
+                                            <motion.div
+                                                initial={{ scale: 0 }}
+                                                animate={{ scale: 1, rotate: [0, 10, -10, 0] }}
+                                                transition={{ delay: 0.2 }}
+                                                className="text-6xl mb-4"
+                                            >
+                                                🎉
+                                            </motion.div>
+                                            <div className="text-3xl font-bold text-green-400 mb-2">Level Complete!</div>
+                                            <div className="text-gray-300">Moves: {gameState.moveCount}</div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {/* Instructions */}
+                            <div className="absolute bottom-6 left-6 bg-gray-800/80 border border-gray-700 rounded px-3 py-2 text-xs text-gray-300">
+                                <div>💡 <strong>Tap</strong> any snake to move it</div>
+                                <div className="mt-1">Movable snakes will <span className="text-green-400">glow</span> on hover</div>
+                            </div>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     )
 }
