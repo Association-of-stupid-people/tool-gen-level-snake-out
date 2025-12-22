@@ -256,7 +256,7 @@ function App() {
       formData.append('method', 'auto') // Use smart auto-detection
 
       // Call server API
-      const response = await fetch('http://localhost:5000/api/process-image', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/process-image`, {
         method: 'POST',
         body: formData
       })
