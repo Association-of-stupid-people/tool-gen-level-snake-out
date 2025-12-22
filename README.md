@@ -1,15 +1,17 @@
-# Tool Gen Level Snake Out 🐍
+# Tool Gen Level Snake Out
 
 A powerful level generator tool for a Snake game variant, featuring a visual grid editor, parametric generation, and instant preview. Built with a React frontend and Python Flask backend.
 
-## 🏗 Architecture
+**Live:** [https://tool-gen-level-snake-out.vercel.app/](https://tool-gen-level-snake-out.vercel.app/)
+
+## Architecture
 
 The project is structured as a modern Client-Server application:
 
 -   **Backend (`/server`)**: Python Flask API handling core logic, image processing, and generation algorithms.
 -   **Frontend (`/client`)**: React + Vite application providing a rich user interface for configuration and visualization.
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 -   **Node.js** (v18+ recommended)
@@ -46,14 +48,14 @@ npm run dev
 ```
 *The client will start at `http://localhost:5173`*
 
-## ✨ Features
+## Features
 
-### 🛠 Grid Editor (Panel 1)
+### Grid Editor (Panel 1)
 -   **Visual Editor**: Draw directly on the grid to create custom shapes or "masks" for generation.
 -   **Tools**: Pen, Eraser, and Shape tools (Rectangle, Circle, Line, etc.).
 -   **Import**: Upload an image to automatically convert it into a grid mask.
 
-### 🎮 Level Generator (Panel 2)
+### Level Generator (Panel 2)
 -   **Parametric Generation**: Configure `Arrow Count`, `Length Range`, `Bends`, `Holes`, and `Tunnels`.
 -   **Real-time Preview**: See the generated level image instantly.
 -   **Export Tools**:
@@ -61,12 +63,12 @@ npm run dev
     -   **Download JSON**: Export the level data for the game engine.
     -   **Naming Config**: Set customizable `Prefix` and `Suffix` for files (e.g., `level_01_v2.json`).
 
-### ⚙️ Global Settings
+### Global Settings
 -   **Grid Configuration**: Adjust Width and Height dynamically.
 -   **Visuals**: Customize the Background Color.
 -   **Palette**: Manage the "Snake Color Palette" used for generation.
 
-## 📝 API Reference
+## API Reference
 
 ### `GET /api/shapes`
 Returns a list of available pre-defined shapes.
@@ -79,7 +81,7 @@ Generates a level based on provided parameters.
 -   `hole_count`, `tunnel_count`: (int) Obstacle counts.
 -   `image_file`: (File, Optional) Mask image for constrained generation.
 
-## 🤝 Contributing
+## Contributing
 1.  Fork the repository.
 2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
 3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
