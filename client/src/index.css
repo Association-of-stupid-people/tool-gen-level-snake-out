@@ -9,6 +9,11 @@
   color-scheme: light dark;
 }
 
+/* Fix Lucide icon vertical alignment with text */
+.lucide {
+  vertical-align: middle;
+}
+
 /* Prevent zoom input spinner */
 #zoom-input {
   -moz-appearance: textfield;
