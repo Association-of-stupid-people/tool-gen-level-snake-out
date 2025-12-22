@@ -192,12 +192,18 @@ class LayeredStrategy(BaseStrategy):
             return path
         return None
 
-    def is_exitable(self, curr, direction):
+    def is_exitable(self, curr, direction, path=None):
         if not direction: return False 
         r, c = curr
         dr, dc = direction
-        # Numba Raycast
-        return optimized_ops.check_raycast_numba(self.rows, self.cols, self.grid_array, r, c, dr, dc) 
+        # Numba Raycast - pass path for self-collision check
+        numba_path = None
+        if path:
+            from numba.typed import List
+            numba_path = List()
+            for p in path:
+                numba_path.append((p[0], p[1]))
+        return optimized_ops.check_raycast_numba(self.rows, self.cols, self.grid_array, r, c, dr, dc, numba_path) 
 
     def sort_neighbors(self, nbs, current_path):
         random.shuffle(nbs)

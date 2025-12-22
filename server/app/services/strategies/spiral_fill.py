@@ -108,7 +108,7 @@ class SpiralFillStrategy(LayeredStrategy):
                 direction = (head[0] - neck[0], head[1] - neck[1])
                 
                 # Use base class check which uses Numba
-                if self.is_exitable(head, direction):
+                if self.is_exitable(head, direction, path):
                     should_stop = False
                     if path_len >= max_len: should_stop = True
                     elif random.random() < 0.3: should_stop = True

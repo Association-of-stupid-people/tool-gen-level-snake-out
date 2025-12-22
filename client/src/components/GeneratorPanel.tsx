@@ -4,6 +4,8 @@ import { useMemo, useEffect, useState, useRef } from 'react'
 import { useSettings } from '../contexts/SettingsContext'
 import React from 'react'
 
+import { useLanguage } from '../i18n'
+
 interface GeneratorPanelProps {
     isGenerating: boolean
     jsonInput?: string
@@ -36,6 +38,7 @@ interface GeneratorPanelProps {
 
 function ColorDropdown({ color, palette, onChange }: { color: string, palette: string[], onChange: (color: string) => void }) {
     const [isOpen, setIsOpen] = useState(false)
+    const { t } = useLanguage()
     const index = palette.indexOf(color)
 
     return (
@@ -45,7 +48,7 @@ function ColorDropdown({ color, palette, onChange }: { color: string, palette: s
                 style={{ borderLeft: `8px solid ${color}` }}
                 onClick={() => setIsOpen(!isOpen)}
             >
-                <span className="truncate">Color {index !== -1 ? index + 1 : '?'}</span>
+                <span className="truncate">{t?.('color') || 'Color'} {index !== -1 ? index + 1 : '?'}</span>
                 <ChevronDown size={12} className="text-gray-400" />
             </button>
 
@@ -63,7 +66,7 @@ function ColorDropdown({ color, palette, onChange }: { color: string, palette: s
                                 }}
                             >
                                 <div className="w-3 h-3 rounded-full shrink-0 border border-gray-500" style={{ backgroundColor: c }} />
-                                <span className="text-xs text-gray-200">Color {i + 1} <span className="text-gray-500 font-mono ml-1">({c})</span></span>
+                                <span className="text-xs text-gray-200">{t?.('color') || 'Color'} {i + 1} <span className="text-gray-500 font-mono ml-1">({c})</span></span>
                             </button>
                         ))}
                     </div>
@@ -96,6 +99,11 @@ export function GeneratorPanel({
     setIsZoomInitialized
 }: GeneratorPanelProps) {
     const { restrictDrawToColored, snakePalette, lengthRange, bendsRange } = useSettings()
+    // Need to handle missing t if useLanguage isn't ready or mocked in some way, though it should be.
+    // However, since ColorDropdown is a separate component, I need to pass t or useLanguage inside it?
+    // ColorDropdown is defined in the same file but outside GeneratorPanel. It can't use the hook from GeneratorPanel.
+    // It should use the hook itself.
+    const { t } = useLanguage()
 
     // Arrow drag state for path-based drawing
     const [arrowDragState, setArrowDragState] = useState<{
@@ -447,7 +455,7 @@ export function GeneratorPanel({
         return (
             <div className="flex flex-col items-center justify-center h-full text-gray-400">
                 <Loader2 size={48} className="animate-spin mb-4 text-purple-500" />
-                <p>Generating level...</p>
+                <p>{t('generatingLevel')}</p>
             </div>
         )
     }
@@ -456,8 +464,8 @@ export function GeneratorPanel({
         return (
             <div className="flex items-center justify-center h-full text-gray-500 bg-gray-900/50">
                 <div className="text-center p-8 bg-gray-800 rounded-2xl shadow-xl border border-gray-700">
-                    <p className="text-2xl mb-2">Ready to Gen</p>
-                    <p className="text-sm text-gray-400">Paste valid JSON grid or click Generate</p>
+                    <p className="text-2xl mb-2">{t('readyToGen')}</p>
+                    <p className="text-sm text-gray-400">{t('pasteJsonPrompt')}</p>
                 </div>
             </div>
         )
@@ -510,7 +518,7 @@ export function GeneratorPanel({
                 >
                     {/* Item ID Header */}
                     <div className="px-4 py-2 border-b border-gray-700 bg-gray-900/50 rounded-t-lg">
-                        <span className="text-xs font-mono text-gray-400">Item ID: {contextMenu.data.id}</span>
+                        <span className="text-xs font-mono text-gray-400">{t('itemId')}: {contextMenu.data.id}</span>
                     </div>
 
 
@@ -544,7 +552,7 @@ export function GeneratorPanel({
                             setContextMenu(null)
                         }}
                     >
-                        <Trash2 size={14} /> Delete
+                        <Trash2 size={14} /> {t('delete')}
                     </button>
 
                     {/* Arrow-specific options */}
@@ -588,11 +596,11 @@ export function GeneratorPanel({
                                     setContextMenu(null)
                                 }}
                             >
-                                <RotateCcw size={14} /> Reverse Direction
+                                <RotateCcw size={14} /> {t('reverseDirection')}
                             </button>
                             <div className="px-4 py-2 text-sm text-gray-400 flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
-                                    <Palette size={14} /> Color:
+                                    <Palette size={14} /> {t('color')}:
                                 </div>
                                 <ColorDropdown
                                     color={contextMenu.data.color || '#ffffff'}
@@ -615,7 +623,7 @@ export function GeneratorPanel({
                             {contextMenu.data.type === 'keySnake' && (
                                 <div className="px-4 py-2 space-y-2 border-t border-gray-700">
                                     <div className="flex items-center justify-between gap-2">
-                                        <label className="text-xs text-gray-400">Key ID</label>
+                                        <label className="text-xs text-gray-400">{t('keyId')}</label>
                                         <input
                                             type="number"
                                             className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white"
@@ -634,7 +642,7 @@ export function GeneratorPanel({
                                         />
                                     </div>
                                     <div className="flex items-center justify-between gap-2">
-                                        <label className="text-xs text-gray-400">Lock ID</label>
+                                        <label className="text-xs text-gray-400">{t('lockId')}</label>
                                         <input
                                             type="number"
                                             className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white"
@@ -665,7 +673,7 @@ export function GeneratorPanel({
                                 <>
                                     <div className="border-t border-gray-700 my-1" />
                                     <div className="px-4 py-2 text-sm text-gray-400 flex items-center gap-2">
-                                        <Palette size={14} /> Color:
+                                        <Palette size={14} /> {t('color')}:
                                         <div className="flex gap-1 flex-wrap">
                                             {snakePalette.slice(0, 5).map((color, idx) => (
                                                 <button
@@ -696,7 +704,7 @@ export function GeneratorPanel({
                             {/* Direction for tunnel */}
                             {contextMenu.data.type === 'tunnel' && (
                                 <div className="px-4 py-2 text-sm text-gray-400 flex items-center gap-2">
-                                    <ArrowUpDown size={14} /> Direction:
+                                    <ArrowUpDown size={14} /> {t('direction')}:
                                     <select
                                         className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white"
                                         value={contextMenu.data.direction || 'right'}
@@ -729,7 +737,7 @@ export function GeneratorPanel({
                                 <>
                                     <div className="border-t border-gray-700 my-1" />
                                     <div className="px-4 py-2 text-sm text-gray-400 flex items-center gap-2">
-                                        <Hash size={14} /> Countdown:
+                                        <Hash size={14} /> {t('countdown')}:
                                         <input
                                             type="number"
                                             className="w-12 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-white"

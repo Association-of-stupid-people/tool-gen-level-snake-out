@@ -9,6 +9,7 @@ import { GeneratorPanel } from './components/GeneratorPanel'
 import { useSettings } from './contexts/SettingsContext'
 import { useNotification } from './contexts/NotificationContext'
 import { useHistory } from './hooks/useHistory'
+import { useLanguage } from './i18n'
 
 import { SimulationModal } from './components/SimulationModal'
 
@@ -17,6 +18,7 @@ function App() {
   const [activeSidebar, setActiveSidebar] = useState<'panel1' | 'panel2' | 'settings'>('panel1')
   const [activeView, setActiveView] = useState<'grid' | 'generator'>('grid')
   const [isSimulationOpen, setIsSimulationOpen] = useState(false) // Simulation State
+  const { language, setLanguage, t } = useLanguage() // Language from Context
 
   // Tool State
   const [currentTool, setCurrentTool] = useState<'pen' | 'eraser' | 'shape'>('pen')
@@ -525,9 +527,26 @@ function App() {
         {/* Header */}
         <div className="h-[72.5px] bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6">
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 flex items-center gap-3">
-            {activeView === 'grid' && <><Grid className="text-purple-500" /> Grid Editor</>}
-            {activeView === 'generator' && <><Wand2 className="text-purple-500" /> Level Generator</>}
+            {activeView === 'grid' && <><Grid className="text-purple-500" /> {t('gridEditor')}</>}
+            {activeView === 'generator' && <><Wand2 className="text-purple-500" /> {t('levelGenerator')}</>}
           </h1>
+
+          {/* Language Toggle - Right aligned */}
+          <div
+            onClick={() => setLanguage(language === 'EN' ? 'VN' : 'EN')}
+            className="relative w-20 h-7 bg-gray-700 rounded-full border border-gray-600 cursor-pointer select-none"
+          >
+            {/* Labels inside */}
+            <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium transition-colors duration-200 ${language === 'VN' ? 'text-gray-400' : 'text-transparent'}`}>EN</span>
+            <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-medium transition-colors duration-200 ${language === 'EN' ? 'text-gray-400' : 'text-transparent'}`}>VN</span>
+            {/* Sliding ball with text */}
+            <div
+              className={`absolute top-1/2 -translate-y-1/2 w-9 h-5 bg-purple-500 rounded-full shadow flex items-center justify-center transition-all duration-200
+                ${language === 'VN' ? 'left-[39px]' : 'left-1'}`}
+            >
+              <span className="text-xs font-bold text-white">{language}</span>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 overflow-hidden relative">

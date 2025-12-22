@@ -72,11 +72,11 @@ def min_fragment_bonus_fill(strategy, min_len, max_len, min_bends, max_bends):
     # Override with MinFragment sorting for tighter packing
     strategy.sort_neighbors = lambda nbs, path: _min_fragment_sort_neighbors(strategy, nbs, path)
     
-    # Passes: Standard -> Short -> Tiny
+    # Passes: All use user-defined min_len/max_len (no hardcoding)
     passes = [
         (min_len, max_len, "Pass 1: Standard"),
-        (2, max_len, "Pass 2: Short"),
-        (2, min(4, max_len), "Pass 3: Tiny"),
+        (min_len, max_len, "Pass 2: Retry"),
+        (min_len, max_len, "Pass 3: Final"),
     ]
     
     for pass_min, pass_max, pass_name in passes:

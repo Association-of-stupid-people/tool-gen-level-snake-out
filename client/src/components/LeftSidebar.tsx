@@ -1,10 +1,11 @@
-import { Grid, Wand2, Settings, Plus, X, ChevronDown, Sliders, Package, Ban, Palette, FileJson, Copy, Code, AlertTriangle, Trash2 } from 'lucide-react'
+import { Grid, Wand2, Settings, Plus, X, ChevronDown, Sliders, Package, Ban, Palette, FileJson, Copy, Code, AlertTriangle, Trash2, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../contexts/SettingsContext'
 import { AnimatedButton } from './AnimatedButton'
 import { CustomSelect } from './CustomSelect'
 import { CompactSelect } from './CompactSelect'
 import { useNotification } from '../contexts/NotificationContext'
+import { useLanguage } from '../i18n'
 import { useState, useEffect } from 'react'
 
 interface LeftSidebarProps {
@@ -34,6 +35,7 @@ interface ColorDropdownProps {
 
 function ColorDropdown({ color, palette, onChange }: ColorDropdownProps) {
     const [isOpen, setIsOpen] = useState(false)
+    const { t } = useLanguage()
     const index = palette.indexOf(color)
 
     return (
@@ -43,7 +45,7 @@ function ColorDropdown({ color, palette, onChange }: ColorDropdownProps) {
                 style={{ borderLeft: `8px solid ${color}` }}
                 onClick={() => setIsOpen(!isOpen)}
             >
-                <span className="truncate">Color {index !== -1 ? index + 1 : '?'}</span>
+                <span className="truncate">{t('color')} {index !== -1 ? index + 1 : '?'}</span>
                 <ChevronDown size={12} className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
@@ -68,7 +70,7 @@ function ColorDropdown({ color, palette, onChange }: ColorDropdownProps) {
                                     }}
                                 >
                                     <div className="w-3 h-3 rounded-full shrink-0 border border-gray-500" style={{ backgroundColor: c }} />
-                                    <span className="text-xs text-gray-200">Color {i + 1} <span className="text-gray-500 font-mono ml-1">({c})</span></span>
+                                    <span className="text-xs text-gray-200">{t('color')} {i + 1} <span className="text-gray-500 font-mono ml-1">({c})</span></span>
                                 </button>
                             ))}
                         </motion.div>
@@ -87,6 +89,7 @@ interface JsonEditorSectionProps {
 
 function JsonEditorSection({ gridData, onGridDataChange }: JsonEditorSectionProps) {
     const { addNotification } = useNotification()
+    const { t } = useLanguage()
 
     const [jsonText, setJsonText] = useState('')
     const [isValid, setIsValid] = useState(true)
@@ -203,9 +206,9 @@ function JsonEditorSection({ gridData, onGridDataChange }: JsonEditorSectionProp
         <div className="space-y-4 h-full flex flex-col">
             <div className="bg-gray-700/50 rounded-xl p-4 flex-1 flex flex-col">
                 <h3 className="text-sm font-semibold text-white border-b border-gray-600 pb-2 mb-3 flex items-center gap-2">
-                    <FileJson size={16} className="text-purple-400" /> <span className="translate-y-[1px]">Grid Editor</span>
+                    <FileJson size={16} className="text-purple-400" /> <span className="translate-y-[1px]">{t('gridEditorSection')}</span>
                 </h3>
-                <p className="text-xs text-gray-400 mb-3">{cellCount} / {totalCells} cells filled</p>
+                <p className="text-xs text-gray-400 mb-3">{cellCount} / {totalCells} {t('cellsFilled')}</p>
 
                 <textarea
                     value={jsonText}
@@ -219,14 +222,14 @@ function JsonEditorSection({ gridData, onGridDataChange }: JsonEditorSectionProp
 
                 {isUserEditing && isValid && (
                     <div className="flex gap-2 mt-3">
-                        <button onClick={handleApplyJson} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs py-2 rounded transition-colors">Apply</button>
-                        <button onClick={() => setIsUserEditing(false)} className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded">Cancel</button>
+                        <button onClick={handleApplyJson} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs py-2 rounded transition-colors">{t('apply')}</button>
+                        <button onClick={() => setIsUserEditing(false)} className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded">{t('cancel')}</button>
                     </div>
                 )}
 
                 <div className="flex gap-2 mt-3">
-                    <button onClick={handleFormat} className="flex-1 flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 rounded"><Code size={12} /> <span className="translate-y-[1px]">Format</span></button>
-                    <button onClick={handleCopy} className="flex-1 flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 rounded"><Copy size={12} /> <span className="translate-y-[1px]">Copy</span></button>
+                    <button onClick={handleFormat} className="flex-1 flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 rounded"><Code size={12} /> <span className="translate-y-[1px]">{t('format')}</span></button>
+                    <button onClick={handleCopy} className="flex-1 flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 rounded"><Copy size={12} /> <span className="translate-y-[1px]">{t('copy')}</span></button>
                     <button onClick={handleClear} className="flex items-center justify-center bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded"><Trash2 size={12} /></button>
                 </div>
             </div>
@@ -235,6 +238,7 @@ function JsonEditorSection({ gridData, onGridDataChange }: JsonEditorSectionProp
 }
 
 export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerating, onObstacleTypeUsed, onObstacleUpdate, onObstacleDelete, nextItemId, setNextItemId, onDataUpdate, onObstacleAdd, gridData, setGridData }: LeftSidebarProps) {
+    const { t } = useLanguage()
     const {
         gridSize, setGridSize,
         snakePalette, setSnakePalette,
@@ -394,9 +398,9 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     const panels = [
-        { id: 'panel1' as const, icon: Grid, label: 'Grid' },
-        { id: 'panel2' as const, icon: Wand2, label: 'Generator' },
-        { id: 'settings' as const, icon: Settings, label: 'Settings' },
+        { id: 'panel1' as const, icon: Grid, label: t('grid') },
+        { id: 'panel2' as const, icon: Wand2, label: t('generator') },
+        { id: 'settings' as const, icon: Settings, label: t('settings') },
     ]
 
 
@@ -488,11 +492,11 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                         >
                             {isGenerating ? (
                                 <>
-                                    <Wand2 size={18} className="animate-spin" /> Generating...
+                                    <Loader2 size={18} className="animate-spin" /> {t('generating')}
                                 </>
                             ) : (
                                 <>
-                                    <Wand2 size={18} /> Generate Level
+                                    <Wand2 size={18} /> {t('generateLevel')}
                                 </>
                             )}
                         </AnimatedButton>
@@ -501,11 +505,11 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
 
                         <div className="bg-gray-700/50 rounded-xl p-4 space-y-4">
                             <h3 className="text-sm font-semibold text-white border-b border-gray-600 pb-2 flex items-center gap-2">
-                                <Package size={16} /> <span className="translate-y-[1px]">Distribution Strategy</span>
+                                <Package size={16} /> <span className="translate-y-[1px]">{t('distributionStrategy')}</span>
                             </h3>
 
                             <div className="flex items-center justify-between gap-4">
-                                <label className="text-xs text-gray-400 whitespace-nowrap">Arrow Count</label>
+                                <label className="text-xs text-gray-400 whitespace-nowrap">{t('arrowCount')}</label>
                                 <input
                                     type="number"
                                     min="1"
@@ -521,12 +525,12 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     value={distributionStrategy}
                                     onChange={(val) => setDistributionStrategy(val)}
                                     options={[
-                                        { value: 'SMART_DYNAMIC', label: 'Smart Dynamic' },
-                                        { value: 'RANDOM_ADAPTIVE', label: 'Random Adaptive' },
-                                        { value: 'EDGE_HUGGER', label: 'Edge Hugger' },
-                                        { value: 'MAX_CLUMP', label: 'Max Clump' },
-                                        { value: 'SPIRAL_FILL', label: 'Spiral Fill' },
-                                        { value: 'SYMMETRICAL', label: 'Symmetrical' },
+                                        { value: 'SMART_DYNAMIC', label: t('smartDynamic') },
+                                        { value: 'RANDOM_ADAPTIVE', label: t('randomAdaptive') },
+                                        { value: 'EDGE_HUGGER', label: t('edgeHugger') },
+                                        { value: 'MAX_CLUMP', label: t('maxClump') },
+                                        { value: 'SPIRAL_FILL', label: t('spiralFill') },
+                                        { value: 'SYMMETRICAL', label: t('symmetrical') },
                                     ]}
                                 />
                             </div>
@@ -535,7 +539,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             {distributionStrategy === 'SMART_DYNAMIC' && (
                                 <div className="space-y-3 pt-3 border-t border-gray-600/50">
                                     <div className="space-y-1">
-                                        <label className="text-xs text-gray-400">Depth Priority ({strategyConfig.depth_priority})</label>
+                                        <label className="text-xs text-gray-400">{t('depthPriority')} ({strategyConfig.depth_priority})</label>
                                         <input
                                             type="range" min="0" max="1" step="0.1"
                                             value={strategyConfig.depth_priority}
@@ -544,7 +548,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs text-gray-400">Pool Size % ({strategyConfig.pool_size_percent})</label>
+                                        <label className="text-xs text-gray-400">{t('poolSizePercent')} ({strategyConfig.pool_size_percent})</label>
                                         <input
                                             type="range" min="0.1" max="0.5" step="0.05"
                                             value={strategyConfig.pool_size_percent}
@@ -558,7 +562,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             {distributionStrategy === 'RANDOM_ADAPTIVE' && (
                                 <div className="space-y-3 pt-3 border-t border-gray-600/50">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Prefer Edges</label>
+                                        <label className="text-xs text-gray-400">{t('preferEdges')}</label>
                                         <button
                                             onClick={() => updateConfig('prefer_edges', !strategyConfig.prefer_edges)}
                                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${strategyConfig.prefer_edges ? 'bg-purple-600' : 'bg-gray-600'}`}
@@ -567,7 +571,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         </button>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Avoid Corners</label>
+                                        <label className="text-xs text-gray-400">{t('avoidCorners')}</label>
                                         <button
                                             onClick={() => updateConfig('avoid_corners', !strategyConfig.avoid_corners)}
                                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${strategyConfig.avoid_corners ? 'bg-purple-600' : 'bg-gray-600'}`}
@@ -581,7 +585,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             {distributionStrategy === 'EDGE_HUGGER' && (
                                 <div className="space-y-3 pt-3 border-t border-gray-600/50">
                                     <div className="space-y-1">
-                                        <label className="text-xs text-gray-400">Wall Follow Strength ({strategyConfig.wall_follow_strength})</label>
+                                        <label className="text-xs text-gray-400">{t('wallFollowStrength')} ({strategyConfig.wall_follow_strength})</label>
                                         <input
                                             type="range" min="0" max="1" step="0.1"
                                             value={strategyConfig.wall_follow_strength}
@@ -590,7 +594,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         />
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Edge Distance Max</label>
+                                        <label className="text-xs text-gray-400">{t('edgeDistanceMax')}</label>
                                         <input
                                             type="number" min="0" max="5"
                                             value={strategyConfig.edge_distance_max}
@@ -599,7 +603,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         />
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Corner Priority</label>
+                                        <label className="text-xs text-gray-400">{t('cornerPriority')}</label>
                                         <button
                                             onClick={() => updateConfig('corner_priority', !strategyConfig.corner_priority)}
                                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${strategyConfig.corner_priority ? 'bg-purple-600' : 'bg-gray-600'}`}
@@ -614,7 +618,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             {distributionStrategy === 'MAX_CLUMP' && (
                                 <div className="space-y-3 pt-3 border-t border-gray-600/50">
                                     <div className="space-y-1">
-                                        <label className="text-xs text-gray-400">Expansion Rate ({strategyConfig.expansion_rate})</label>
+                                        <label className="text-xs text-gray-400">{t('expansionRate')} ({strategyConfig.expansion_rate})</label>
                                         <input
                                             type="range" min="0" max="1" step="0.1"
                                             value={strategyConfig.expansion_rate}
@@ -623,7 +627,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         />
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Min Area Size</label>
+                                        <label className="text-xs text-gray-400">{t('minAreaSize')}</label>
                                         <input
                                             type="number" min="1" max="10"
                                             value={strategyConfig.min_area_size}
@@ -632,7 +636,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         />
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Avoid Edges</label>
+                                        <label className="text-xs text-gray-400">{t('avoidEdges')}</label>
                                         <button
                                             onClick={() => updateConfig('avoid_edges', !strategyConfig.avoid_edges)}
                                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${strategyConfig.avoid_edges ? 'bg-purple-600' : 'bg-gray-600'}`}
@@ -646,7 +650,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             {distributionStrategy === 'SPIRAL_FILL' && (
                                 <div className="space-y-3 pt-3 border-t border-gray-600/50">
                                     <div className="space-y-1">
-                                        <label className="text-xs text-gray-400">Tightness ({strategyConfig.tightness})</label>
+                                        <label className="text-xs text-gray-400">{t('tightness')} ({strategyConfig.tightness})</label>
                                         <input
                                             type="range" min="0" max="1" step="0.1"
                                             value={strategyConfig.tightness}
@@ -655,29 +659,29 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         />
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Direction</label>
+                                        <label className="text-xs text-gray-400">{t('direction')}</label>
                                         <div className="relative w-32">
                                             <CompactSelect
                                                 value={strategyConfig.direction}
                                                 onChange={(val) => updateConfig('direction', val)}
                                                 options={[
-                                                    { value: 'random', label: 'Random' },
-                                                    { value: 'clockwise', label: 'Clockwise' },
-                                                    { value: 'counter_clockwise', label: 'Counter CW' },
+                                                    { value: 'random', label: t('random') },
+                                                    { value: 'clockwise', label: t('clockwise') },
+                                                    { value: 'counter_clockwise', label: t('counterClockwise') },
                                                 ]}
                                             />
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Start From</label>
+                                        <label className="text-xs text-gray-400">{t('startFrom')}</label>
                                         <div className="relative w-32">
                                             <CompactSelect
                                                 value={strategyConfig.start_from}
                                                 onChange={(val) => updateConfig('start_from', val)}
                                                 options={[
-                                                    { value: 'random', label: 'Random' },
-                                                    { value: 'center', label: 'Center' },
-                                                    { value: 'corner', label: 'Corner' },
+                                                    { value: 'random', label: t('random') },
+                                                    { value: 'center', label: t('center') },
+                                                    { value: 'corner', label: t('corner') },
                                                 ]}
                                             />
                                         </div>
@@ -688,7 +692,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             {distributionStrategy === 'SYMMETRICAL' && (
                                 <div className="space-y-3 pt-3 border-t border-gray-600/50">
                                     <div className="space-y-1">
-                                        <label className="text-xs text-gray-400">Strictness ({strategyConfig.strictness})</label>
+                                        <label className="text-xs text-gray-400">{t('strictness')} ({strategyConfig.strictness})</label>
                                         <input
                                             type="range" min="0" max="1" step="0.1"
                                             value={strategyConfig.strictness}
@@ -697,31 +701,31 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         />
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Symmetry Type</label>
+                                        <label className="text-xs text-gray-400">{t('symmetryType')}</label>
                                         <div className="relative w-32">
                                             <CompactSelect
                                                 value={strategyConfig.symmetry_type}
                                                 onChange={(val) => updateConfig('symmetry_type', val)}
                                                 options={[
-                                                    { value: 'random', label: 'Random' },
-                                                    { value: 'horizontal', label: 'Horizontal' },
-                                                    { value: 'vertical', label: 'Vertical' },
-                                                    { value: 'both', label: 'Both' },
-                                                    { value: 'radial', label: 'Radial' },
+                                                    { value: 'random', label: t('random') },
+                                                    { value: 'horizontal', label: t('horizontal') },
+                                                    { value: 'vertical', label: t('vertical') },
+                                                    { value: 'both', label: t('both') },
+                                                    { value: 'radial', label: t('radial') },
                                                 ]}
                                             />
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs text-gray-400">Fallback</label>
+                                        <label className="text-xs text-gray-400">{t('fallback')}</label>
                                         <div className="relative w-32">
                                             <CompactSelect
                                                 value={strategyConfig.fallback_strategy}
                                                 onChange={(val) => updateConfig('fallback_strategy', val)}
                                                 options={[
-                                                    { value: 'random', label: 'Random' },
-                                                    { value: 'smart_dynamic', label: 'Smart Dynamic' },
-                                                    { value: 'edge_hugger', label: 'Edge Hugger' },
+                                                    { value: 'random', label: t('random') },
+                                                    { value: 'smart_dynamic', label: t('smartDynamic') },
+                                                    { value: 'edge_hugger', label: t('edgeHugger') },
                                                 ]}
                                             />
                                         </div>
@@ -732,11 +736,11 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
 
                         <div className="bg-gray-700/50 rounded-xl p-4 space-y-4">
                             <h3 className="text-sm font-semibold text-white border-b border-gray-600 pb-2 flex items-center gap-2">
-                                <Sliders size={16} /> <span className="translate-y-[1px]">Complexity</span>
+                                <Sliders size={16} /> <span className="translate-y-[1px]">{t('complexity')}</span>
                             </h3>
 
                             <div className="space-y-1">
-                                <label className="text-xs text-gray-400">Length Range ({lengthRange.min} - {lengthRange.max})</label>
+                                <label className="text-xs text-gray-400">{t('lengthRange')} ({lengthRange.min} - {lengthRange.max})</label>
                                 <div className="flex gap-2">
                                     <input
                                         type="number" min="2" max="20" value={lengthRange.min}
@@ -752,7 +756,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-xs text-gray-400">Bends Range ({bendsRange.min} - {bendsRange.max})</label>
+                                <label className="text-xs text-gray-400">{t('bendsRange')} ({bendsRange.min} - {bendsRange.max})</label>
                                 <div className="flex gap-2">
                                     <input
                                         type="number" min="0" max="10" value={bendsRange.min}
@@ -772,10 +776,10 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                         <div className="bg-gray-700/50 rounded-xl p-4 space-y-4">
                             <div className="flex justify-between items-center border-b border-gray-600 pb-2">
                                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                                    <Ban size={16} /> <span className="translate-y-[1px]">Obstacles</span>
+                                    <Ban size={16} /> <span className="translate-y-[1px]">{t('obstacles')}</span>
                                 </h3>
                                 <span className="text-xs font-mono text-purple-300 bg-purple-900/50 px-2 py-0.5 rounded-full">
-                                    {obstacles.length} Items
+                                    {obstacles.length} {t('items')}
                                 </span>
                             </div>
 
@@ -786,12 +790,12 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         value={selectedObstacleType}
                                         onChange={(val) => setSelectedObstacleType(val as ObstacleType)}
                                         options={[
-                                            { value: 'wall', label: 'Wall' },
-                                            { value: 'wall_break', label: 'Wall Break' },
-                                            { value: 'hole', label: 'Hole' },
-                                            { value: 'tunnel', label: 'Tunnel' },
-                                            { value: 'iced_snake', label: 'Iced Snake' },
-                                            { value: 'key_snake', label: 'Key Snake' },
+                                            { value: 'wall', label: t('wall') },
+                                            { value: 'wall_break', label: t('wallBreak') },
+                                            { value: 'hole', label: t('hole') },
+                                            { value: 'tunnel', label: t('tunnel') },
+                                            { value: 'iced_snake', label: t('icedSnake') },
+                                            { value: 'key_snake', label: t('keySnake') },
                                         ]}
                                     />
                                 </div>
@@ -799,7 +803,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     onClick={() => addObstacle(selectedObstacleType)}
                                     className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-xs font-bold text-white transition-colors shadow-lg shadow-purple-900/50"
                                 >
-                                    Add
+                                    {t('add')}
                                 </AnimatedButton>
                             </div>
 
@@ -807,7 +811,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
                                 {obstacles.length === 0 && (
                                     <div className="text-center py-6 border-2 border-dashed border-gray-700 rounded-lg">
-                                        <p className="text-xs text-gray-500">No obstacles added yet</p>
+                                        <p className="text-xs text-gray-500">{t('noObstacles')}</p>
                                     </div>
                                 )}
                                 {obstacles.map((obs) => (
@@ -869,7 +873,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                             {/* Cell Size for walls */}
                                             {(obs.type === 'wall' || obs.type === 'wall_break') && (
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <span className="text-xs text-gray-400">Cell Size</span>
+                                                    <span className="text-xs text-gray-400">{t('cellSizeLabel')}</span>
                                                     <input
                                                         type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                         value={obs.cells?.length || 1}
@@ -880,7 +884,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
 
                                             {obs.type === 'wall_break' && (
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <span className="text-xs text-gray-400">Countdown</span>
+                                                    <span className="text-xs text-gray-400">{t('countdown')}</span>
                                                     <input
                                                         type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                         value={obs.wallBreakCounter}
@@ -891,7 +895,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
 
                                             {(obs.type === 'hole' || obs.type === 'tunnel') && (
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <span className="text-xs text-gray-400">Color</span>
+                                                    <span className="text-xs text-gray-400">{t('color')}</span>
                                                     <ColorDropdown
                                                         color={obs.color || ''}
                                                         palette={snakePalette}
@@ -902,16 +906,16 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
 
                                             {obs.type === 'tunnel' && (
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <span className="text-xs text-gray-400">Direction</span>
+                                                    <span className="text-xs text-gray-400">{t('direction')}</span>
                                                     <div className="w-24">
                                                         <CustomSelect
                                                             value={obs.direction || 'right'}
                                                             onChange={(val) => updateObstacle(obs.id, { direction: val })}
                                                             options={[
-                                                                { value: 'up', label: '↑ Up' },
-                                                                { value: 'down', label: '↓ Down' },
-                                                                { value: 'left', label: '← Left' },
-                                                                { value: 'right', label: '→ Right' },
+                                                                { value: 'up', label: t('upArrow') },
+                                                                { value: 'down', label: t('downArrow') },
+                                                                { value: 'left', label: t('leftArrow') },
+                                                                { value: 'right', label: t('rightArrow') },
                                                             ]}
                                                         />
                                                     </div>
@@ -921,7 +925,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                             {obs.type === 'iced_snake' && (
                                                 <div className="space-y-2">
                                                     <div className="flex items-center justify-between gap-2">
-                                                        <span className="text-xs text-gray-400">Snake ID</span>
+                                                        <span className="text-xs text-gray-400">{t('snakeId')}</span>
                                                         <input
                                                             type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                             value={obs.snakeId}
@@ -929,7 +933,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                         />
                                                     </div>
                                                     <div className="flex items-center justify-between gap-2">
-                                                        <span className="text-xs text-gray-400">Countdown</span>
+                                                        <span className="text-xs text-gray-400">{t('countdown')}</span>
                                                         <input
                                                             type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                             value={obs.countdown || 0}
@@ -942,7 +946,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                             {obs.type === 'key_snake' && (
                                                 <div className="space-y-2">
                                                     <div className="flex items-center justify-between gap-2">
-                                                        <span className="text-xs text-gray-400">Key ID</span>
+                                                        <span className="text-xs text-gray-400">{t('keyId')}</span>
                                                         <input
                                                             type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                             value={obs.keySnakeId}
@@ -950,7 +954,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                         />
                                                     </div>
                                                     <div className="flex items-center justify-between gap-2">
-                                                        <span className="text-xs text-gray-400">Lock ID</span>
+                                                        <span className="text-xs text-gray-400">{t('lockId')}</span>
                                                         <input
                                                             type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                             value={obs.lockedSnakeId}
@@ -969,16 +973,16 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
 
                 {activePanel === 'settings' && (
                     <div className="space-y-6">
-                        <h2 className="text-lg font-bold text-white mb-4">Global Settings</h2>
+                        <h2 className="text-lg font-bold text-white mb-4">{t('globalSettings')}</h2>
 
                         {/* Grid Size Controls */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Grid size={16} /> Grid Size
+                                <Grid size={16} /> {t('gridSize')}
                             </h3>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-gray-400 pl-1">Rows</label>
+                                    <label className="text-xs font-medium text-gray-400 pl-1">{t('rows')}</label>
                                     <input
                                         type="number"
                                         value={gridSize.height}
@@ -989,7 +993,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs font-medium text-gray-400 pl-1">Columns</label>
+                                    <label className="text-xs font-medium text-gray-400 pl-1">{t('columns')}</label>
                                     <input
                                         type="number"
                                         value={gridSize.width}
@@ -1005,10 +1009,10 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                         {/* Generator Options */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Wand2 size={16} /> Generator Options
+                                <Wand2 size={16} /> {t('generatorOptions')}
                             </h3>
                             <div className="flex items-center justify-between">
-                                <label className="text-xs text-gray-400">Drawing to Colored Cells</label>
+                                <label className="text-xs text-gray-400">{t('drawingToColoredCells')}</label>
                                 <button
                                     onClick={() => setRestrictDrawToColored(!restrictDrawToColored)}
                                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${restrictDrawToColored ? 'bg-purple-600' : 'bg-gray-600'}`}
@@ -1023,10 +1027,10 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                         {/* Export Settings */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Package size={16} /> Export Config
+                                <Package size={16} /> {t('exportConfig')}
                             </h3>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-gray-400 pl-1">Level File Prefix</label>
+                                <label className="text-xs font-medium text-gray-400 pl-1">{t('levelFilePrefix')}</label>
                                 <input
                                     type="text"
                                     value={filenamePrefix}
@@ -1034,7 +1038,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     className="w-full bg-gray-900/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
                                     placeholder="e.g. level"
                                 />
-                                <label className="text-xs font-medium text-gray-400 pl-1 mt-2">Level File Suffix</label>
+                                <label className="text-xs font-medium text-gray-400 pl-1 mt-2">{t('levelFileSuffix')}</label>
                                 <input
                                     type="text"
                                     value={filenameSuffix}
@@ -1042,7 +1046,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     className="w-full bg-gray-900/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
                                     placeholder="e.g. _v1"
                                 />
-                                <p className="text-[10px] text-gray-500 pl-1">Output: {filenamePrefix}_ID{filenameSuffix}.json</p>
+                                <p className="text-[10px] text-gray-500 pl-1">{t('output')}: {filenamePrefix}_ID{filenameSuffix}.json</p>
                             </div>
                         </div>
 
@@ -1050,7 +1054,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <div className="flex justify-between items-center mb-3">
                                 <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                                    <Palette size={16} /> Snake Palette
+                                    <Palette size={16} /> {t('snakePalette')}
                                 </h3>
                                 <button onClick={handleColorAdd} className="p-1 hover:bg-gray-600 rounded text-purple-400">
                                     <Plus size={16} />

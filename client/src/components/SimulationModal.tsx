@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, RotateCcw } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useLanguage } from '../i18n'
 
 // --- Types ---
 interface SimulationModalProps {
@@ -37,6 +38,7 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
     const hoverTimeoutRef = useRef<number>(0)
     const animatingSnakesRef = useRef<Set<number>>(new Set()) // Track snakes currently animating
     const gameIdRef = useRef(0) // Track game generation to stop old animations
+    const { t } = useLanguage()
 
     // Zoom & Pan State
     const [zoom, setZoom] = useState(1)
@@ -181,6 +183,14 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
             // Other snake in the way
             if (isCellOccupied(checkRow, checkCol, snake.id, snakesArray)) {
                 console.log(`Snake ${snake.id} blocked by other snake at ${checkRow},${checkCol}`)
+                return false
+            }
+            // Check self-collision: snake's own body blocks its path
+            const selfBlocked = snake.dots.some(dot =>
+                dot.row === checkRow && dot.col === checkCol
+            )
+            if (selfBlocked) {
+                console.log(`Snake ${snake.id} blocked by OWN BODY at ${checkRow},${checkCol}`)
                 return false
             }
             checkRow += dir.row
@@ -679,19 +689,19 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
                         {/* Header */}
                         <div className="h-14 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6">
                             <h2 className="text-white font-bold text-lg flex items-center gap-2">
-                                <span className="text-2xl">🎮</span> <span className="translate-y-[1px]">Simulation Mode</span>
+                                <span className="text-2xl">🎮</span> <span className="translate-y-[1px]">{t('simulationMode')}</span>
                             </h2>
 
                             <div className="flex items-center gap-4">
                                 <div className="text-gray-400 text-sm">
-                                    Moves: <span className="text-white font-mono">{gameState.moveCount}</span>
+                                    {t('moves')}: <span className="text-white font-mono">{gameState.moveCount}</span>
                                 </div>
 
                                 <div className="h-6 w-px bg-gray-700 mx-2" />
 
                                 {/* Zoom Slider */}
                                 <div className="flex items-center gap-2 mr-2">
-                                    <span className="text-xs text-gray-400">Zoom</span>
+                                    <span className="text-xs text-gray-400">{t('zoom')}</span>
                                     <input
                                         type="range"
                                         min="10"
@@ -751,8 +761,8 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
                                             >
                                                 🎉
                                             </motion.div>
-                                            <div className="text-3xl font-bold text-green-400 mb-2">Level Complete!</div>
-                                            <div className="text-gray-300">Moves: {gameState.moveCount}</div>
+                                            <div className="text-3xl font-bold text-green-400 mb-2">{t('levelComplete')}</div>
+                                            <div className="text-gray-300">{t('moves')}: {gameState.moveCount}</div>
                                         </div>
                                     </motion.div>
                                 )}
@@ -760,8 +770,8 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
                             {/* Instructions */}
                             <div className="absolute bottom-6 left-6 bg-gray-800/80 border border-gray-700 rounded px-3 py-2 text-xs text-gray-300">
-                                <div>💡 <strong>Tap</strong> any snake to move it</div>
-                                <div className="mt-1">Movable snakes will <span className="text-green-400">glow</span> on hover</div>
+                                <div>💡 {t('tapToMove')}</div>
+                                <div className="mt-1">{t('movableGlow')}</div>
                             </div>
                         </div>
                     </motion.div>

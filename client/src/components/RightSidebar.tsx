@@ -5,6 +5,7 @@ import { useSettings } from '../contexts/SettingsContext'
 import { useNotification } from '../contexts/NotificationContext'
 import { AnimatedButton } from './AnimatedButton'
 import { motion } from 'framer-motion'
+import { useLanguage } from '../i18n'
 import { useState, useEffect } from 'react'
 
 interface RightSidebarProps {
@@ -61,6 +62,7 @@ export function RightSidebar({
 }: RightSidebarProps) {
     const { filenamePrefix, filenameSuffix, snakePalette, gridSize } = useSettings()
     const { addNotification } = useNotification()
+    const { t } = useLanguage()
     const [activeTab, setActiveTab] = useState<'tools' | 'actions'>('tools')
     const [difficultyData, setDifficultyData] = useState<any>(null)
     const [isCalculating, setIsCalculating] = useState(false)
@@ -107,9 +109,9 @@ export function RightSidebar({
     }
 
     const tools = [
-        { id: 'pen' as const, icon: Pencil, label: 'Pen' },
-        { id: 'eraser' as const, icon: Eraser, label: 'Eraser' },
-        { id: 'shape' as const, icon: Shapes, label: 'Shape' },
+        { id: 'pen' as const, icon: Pencil, label: t('pen') },
+        { id: 'eraser' as const, icon: Eraser, label: t('eraser') },
+        { id: 'shape' as const, icon: Shapes, label: t('shape') },
     ]
 
     const shapes = [
@@ -123,17 +125,17 @@ export function RightSidebar({
 
     // Generator Tools
     const generatorTools = [
-        { id: 'none' as const, icon: null, label: 'None' },
-        { id: 'arrow' as const, icon: ArrowUpRight, label: 'Arrow' },
-        { id: 'obstacle' as const, icon: Ban, label: 'Obstacle' },
-        { id: 'eraser' as const, icon: Eraser, label: 'Eraser' },
+        { id: 'none' as const, icon: null, label: t('none') },
+        { id: 'arrow' as const, icon: ArrowUpRight, label: t('arrow') },
+        { id: 'obstacle' as const, icon: Ban, label: t('obstacles') },
+        { id: 'eraser' as const, icon: Eraser, label: t('eraser') },
     ]
 
     const obstacleTypes = [
-        { id: 'wall', label: 'Wall' },
-        { id: 'wall_break', label: 'Wall Break' },
-        { id: 'hole', label: 'Hole' },
-        { id: 'tunnel', label: 'Tunnel' },
+        { id: 'wall', label: t('wall') },
+        { id: 'wall_break', label: t('wallBreak') },
+        { id: 'hole', label: t('hole') },
+        { id: 'tunnel', label: t('tunnel') },
     ]
 
     // Convert overlays to server-compatible JSON format
@@ -325,7 +327,7 @@ export function RightSidebar({
                                 />
                             )}
                             <Pencil size={14} className="mr-2" />
-                            <span className="translate-y-[1px]">Tools</span>
+                            <span className="translate-y-[1px]">{t('tools')}</span>
                         </button>
                         <button
                             onClick={() => setActiveTab('actions')}
@@ -342,7 +344,7 @@ export function RightSidebar({
                                 />
                             )}
                             <Download size={14} className="mr-2" />
-                            <span className="translate-y-[1px]">Files</span>
+                            <span className="translate-y-[1px]">{t('actions')}</span>
                         </button>
                     </div>
                 </div>
@@ -383,10 +385,10 @@ export function RightSidebar({
                         {generatorTool === 'arrow' && generatorSettings && setGeneratorSettings && (
                             <div className="bg-gray-700/50 rounded-xl p-4 mb-6">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <ArrowUpRight size={16} /> <span className="translate-y-[1px]">Arrow Settings</span>
+                                    <ArrowUpRight size={16} /> <span className="translate-y-[1px]">{t('arrow')} {t('settings')}</span>
                                 </h3>
                                 <div className="space-y-2">
-                                    <label className="text-xs text-gray-400 block mb-1">Arrow Color</label>
+                                    <label className="text-xs text-gray-400 block mb-1">{t('arrowColor')}</label>
                                     <ColorSelect
                                         value={generatorSettings.arrowColor}
                                         palette={snakePalette}
@@ -401,12 +403,12 @@ export function RightSidebar({
                         {generatorTool === 'obstacle' && generatorSettings && setGeneratorSettings && generatorOverlays && (
                             <div className="bg-gray-700/50 rounded-xl p-4 mb-6">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <Ban size={16} /> <span className="translate-y-[1px]">Obstacle Settings</span>
+                                    <Ban size={16} /> <span className="translate-y-[1px]">{t('obstacles')} {t('settings')}</span>
                                 </h3>
                                 <div className="space-y-4">
                                     {/* Obstacle Type Dropdown */}
                                     <div className="space-y-1">
-                                        <label className="text-xs text-gray-400 block mb-1">Obstacle Type</label>
+                                        <label className="text-xs text-gray-400 block mb-1">{t('obstacleType')}</label>
                                         <CustomSelect
                                             value={generatorSettings.obstacleType}
                                             options={obstacleTypes.map(t => ({ value: t.id, label: t.label }))}
@@ -425,7 +427,7 @@ export function RightSidebar({
                                     {(generatorSettings.obstacleType === 'tunnel' || generatorSettings.obstacleType === 'hole') && (
                                         <div className="space-y-2">
                                             <label className="text-xs text-gray-400 block mb-1">
-                                                {generatorSettings.obstacleType === 'tunnel' ? 'Tunnel Color' : 'Hole Color'}
+                                                {generatorSettings.obstacleType === 'tunnel' ? t('tunnelColor') : t('holeColor')}
                                             </label>
                                             <ColorSelect
                                                 value={generatorSettings.obstacleColor}
@@ -440,14 +442,14 @@ export function RightSidebar({
                                     {/* Direction Dropdown for Tunnel */}
                                     {generatorSettings.obstacleType === 'tunnel' && (
                                         <div className="space-y-1">
-                                            <label className="text-xs text-gray-400 block mb-1">Direction</label>
+                                            <label className="text-xs text-gray-400 block mb-1">{t('direction')}</label>
                                             <CustomSelect
                                                 value={generatorSettings.tunnelDirection}
                                                 options={[
-                                                    { value: 'up', label: '↑ Up' },
-                                                    { value: 'down', label: '↓ Down' },
-                                                    { value: 'left', label: '← Left' },
-                                                    { value: 'right', label: '→ Right' },
+                                                    { value: 'up', label: t('upArrow') },
+                                                    { value: 'down', label: t('downArrow') },
+                                                    { value: 'left', label: t('leftArrow') },
+                                                    { value: 'right', label: t('rightArrow') },
                                                 ]}
                                                 onChange={(val) => setGeneratorSettings({ ...generatorSettings, tunnelDirection: val })}
                                             />
@@ -471,19 +473,19 @@ export function RightSidebar({
                                                         <div className="flex-1">
                                                             <p className="text-xs font-medium text-white">
                                                                 {isComplete
-                                                                    ? "Pair check: OK"
-                                                                    : "Pair check: Incomplete"
+                                                                    ? t('pairCheckOK')
+                                                                    : t('pairCheckIncomplete')
                                                                 }
                                                             </p>
                                                             <p className="text-[10px] text-gray-400 mt-0.5">
                                                                 {remainder === 0
-                                                                    ? "Place first tunnel to start a pair."
-                                                                    : "Place one more tunnel to complete the pair."
+                                                                    ? t('placeFirstTunnel')
+                                                                    : t('placeOneMoreTunnel')
                                                                 }
                                                             </p>
                                                             {currentTunnelCount > 0 && (
                                                                 <p className="text-[10px] text-gray-500 mt-1">
-                                                                    Current count: <span className="text-gray-300">{currentTunnelCount}</span>
+                                                                    {t('currentCount')}: <span className="text-gray-300">{currentTunnelCount}</span>
                                                                 </p>
                                                             )}
                                                         </div>
@@ -496,7 +498,7 @@ export function RightSidebar({
                                     {/* Wall Break Countdown Input */}
                                     {generatorSettings.obstacleType === 'wall_break' && (
                                         <div className="space-y-2">
-                                            <label className="text-xs text-gray-400 block mb-1">Break Countdown</label>
+                                            <label className="text-xs text-gray-400 block mb-1">{t('breakCountdown')}</label>
                                             <input
                                                 type="number"
                                                 min="1"
@@ -514,26 +516,26 @@ export function RightSidebar({
                         {/* Clear Overlays Block */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Trash2 size={16} /> <span className="translate-y-[1px]">Actions</span>
+                                <Trash2 size={16} /> <span className="translate-y-[1px]">{t('actions')}</span>
                             </h3>
                             <AnimatedButton
                                 onClick={onClearOverlays}
                                 className="w-full py-2 bg-red-500/10 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                             >
-                                <Trash2 size={14} /> <span className="translate-y-[1px]">Clear All</span>
+                                <Trash2 size={14} /> <span className="translate-y-[1px]">{t('clearOverlays')}</span>
                             </AnimatedButton>
                             <AnimatedButton
                                 onClick={onSimulate}
                                 className="w-full mt-2 py-2 bg-green-500/10 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                             >
-                                <Play size={14} /> <span className="translate-y-[1px]">Simulate Level</span>
+                                <Play size={14} /> <span className="translate-y-[1px]">{t('simulate')}</span>
                             </AnimatedButton>
                         </div>
 
                         {/* Difficulty Analysis */}
                         <div className="bg-gray-700/50 rounded-xl p-4 space-y-3 mt-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Calculator size={16} /> <span className="translate-y-[1px]">Difficulty Analysis</span>
+                                <Calculator size={16} /> <span className="translate-y-[1px]">{t('difficultyAnalysis')}</span>
                             </h3>
 
                             <AnimatedButton
@@ -546,33 +548,33 @@ export function RightSidebar({
                                 ) : (
                                     <Calculator size={14} />
                                 )}
-                                Calculate Score
+                                {t('calculateScore')}
                             </AnimatedButton>
 
                             {difficultyData && (
                                 <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <div className="flex justify-between items-end border-b border-gray-700 pb-2">
-                                        <span className="text-xs text-gray-400">Total Difficulty</span>
+                                        <span className="text-xs text-gray-400">{t('totalDifficulty')}</span>
                                         <span className="text-xl font-bold text-orange-400">{difficultyData.difficulty_score}</span>
                                     </div>
 
                                     <div className="grid grid-cols-3 gap-2 pt-1 text-center">
                                         <div className="bg-gray-900/40 rounded p-1">
-                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Snake</div>
+                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">{t('snake')}</div>
                                             <div className="text-sm font-semibold text-blue-400">{difficultyData.breakdown.S}</div>
                                         </div>
                                         <div className="bg-gray-900/40 rounded p-1">
-                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Free</div>
+                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">{t('free')}</div>
                                             <div className="text-sm font-semibold text-green-400">{difficultyData.breakdown.F}</div>
                                         </div>
                                         <div className="bg-gray-900/40 rounded p-1">
-                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Obs</div>
+                                            <div className="text-[10px] text-gray-500 uppercase tracking-wider">{t('obs')}</div>
                                             <div className="text-sm font-semibold text-red-400">{difficultyData.breakdown.O}</div>
                                         </div>
                                     </div>
 
                                     <div className="text-[10px] text-gray-500 italic text-center mt-1">
-                                        Score = S (Load) + F (Freedom) + O (Obstacles)
+                                        {t('scoreFormula')}
                                     </div>
                                 </div>
                             )}
@@ -585,24 +587,24 @@ export function RightSidebar({
                             {/* Level Config */}
                             <div className="bg-gray-700/50 rounded-xl p-4">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <Settings size={16} /> <span className="translate-y-[1px]">Export Config</span>
+                                    <Settings size={16} /> <span className="translate-y-[1px]">{t('exportConfig')}</span>
                                 </h3>
                                 <div className="space-y-2">
-                                    <label className="text-xs text-gray-400">Level ID</label>
+                                    <label className="text-xs text-gray-400">{t('levelIdLabel')}</label>
                                     <input
                                         type="number"
                                         value={levelId}
                                         onChange={(e) => onLevelIdChange(Number(e.target.value))}
                                         className="w-full bg-gray-900/50 border border-gray-600/50 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
                                     />
-                                    <p className="text-[10px] text-gray-500">File: <span className="text-gray-400">{filenamePrefix}{levelId}{filenameSuffix}</span></p>
+                                    <p className="text-[10px] text-gray-500">{t('file')}: <span className="text-gray-400">{filenamePrefix}{levelId}{filenameSuffix}</span></p>
                                 </div>
                             </div>
 
                             {/* Uploads */}
                             <div className="bg-gray-700/50 rounded-xl p-4 space-y-3">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <Upload size={16} /> <span className="translate-y-[1px]">Import</span>
+                                    <Upload size={16} /> <span className="translate-y-[1px]">{t('import')}</span>
                                 </h3>
 
                                 <AnimatedButton
@@ -617,9 +619,9 @@ export function RightSidebar({
                                                     const text = await file.text()
                                                     JSON.parse(text) // Validate JSON
                                                     onImportJson?.(text)
-                                                    addNotification('success', 'JSON imported from file!')
+                                                    addNotification('success', t('jsonImportedFile'))
                                                 } catch {
-                                                    addNotification('error', 'Invalid JSON file!')
+                                                    addNotification('error', t('invalidJsonFile'))
                                                 }
                                             }
                                         }
@@ -627,7 +629,7 @@ export function RightSidebar({
                                     }}
                                     className="w-full py-2 bg-blue-500/10 text-blue-400 border border-blue-500/50 rounded-lg hover:bg-blue-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none"
                                 >
-                                    <FileUp size={14} /> Import from File
+                                    <FileUp size={14} /> {t('importFromFile')}
                                 </AnimatedButton>
 
                                 <AnimatedButton
@@ -636,24 +638,24 @@ export function RightSidebar({
                                             const text = await navigator.clipboard.readText()
                                             JSON.parse(text) // Validate JSON
                                             onImportJson?.(text)
-                                            addNotification('success', 'JSON imported from clipboard!')
+                                            addNotification('success', t('jsonImportedClipboard'))
                                         } catch {
-                                            addNotification('error', 'Invalid JSON in clipboard!')
+                                            addNotification('error', t('invalidJsonClipboard'))
                                         }
                                     }}
                                     className="w-full py-2 bg-green-500/10 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 leading-none"
                                 >
-                                    <ClipboardPaste size={14} /> Import from Clipboard
+                                    <ClipboardPaste size={14} /> {t('importFromClipboard')}
                                 </AnimatedButton>
                             </div>
 
                             {/* Export */}
                             <div className="bg-gray-700/50 rounded-xl p-4 space-y-3">
                                 <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                    <FileJson size={16} /> <span className="translate-y-[1px]">Export</span>
+                                    <FileJson size={16} /> <span className="translate-y-[1px]">{t('export')}</span>
                                 </h3>
                                 <p className="text-[10px] text-gray-500 -mt-2 mb-2">
-                                    Export arrows and obstacles drawn on grid
+                                    {t('exportDescription')}
                                 </p>
 
                                 <AnimatedButton
@@ -664,7 +666,7 @@ export function RightSidebar({
                                         : ''
                                         }`}
                                 >
-                                    <Download size={14} /> Download JSON
+                                    <Download size={14} /> {t('downloadJson')}
                                 </AnimatedButton>
 
                                 <AnimatedButton
@@ -675,7 +677,7 @@ export function RightSidebar({
                                         : ''
                                         }`}
                                 >
-                                    <Copy size={14} /> Copy JSON
+                                    <Copy size={14} /> {t('copyJson')}
                                 </AnimatedButton>
 
                                 {generatorOverlays && (
@@ -691,11 +693,11 @@ export function RightSidebar({
                             {levelJson && (
                                 <div className="bg-gray-700/50 rounded-xl p-4">
                                     <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                        <Info size={16} /> <span className="translate-y-[1px]">Debug Info</span>
+                                        <Info size={16} /> <span className="translate-y-[1px]">{t('debugInfo')}</span>
                                     </h3>
                                     <div className="text-xs text-gray-400 space-y-1">
-                                        <p>Objects: <span className="text-white">{levelJson.length}</span></p>
-                                        <p>Generated At: <span className="text-white">{new Date().toLocaleTimeString()}</span></p>
+                                        <p>{t('objects')}: <span className="text-white">{levelJson.length}</span></p>
+                                        <p>{t('generatedAt')}: <span className="text-white">{new Date().toLocaleTimeString()}</span></p>
                                     </div>
                                 </div>
                             )}
@@ -720,7 +722,7 @@ export function RightSidebar({
                         className="relative z-10 flex-1 flex items-center justify-center text-xs font-medium text-white transition-colors duration-200"
                     >
                         <Pencil size={14} className="mr-2" />
-                        <span className="translate-y-[1px]">Tools</span>
+                        <span className="translate-y-[1px]">{t('tools')}</span>
                     </button>
                 </div>
             </div>
@@ -766,7 +768,7 @@ export function RightSidebar({
                     {currentTool === 'shape' && (
                         <div className="bg-gray-700/50 rounded-xl p-4 mb-6">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Shapes size={16} /> <span className="translate-y-[1px]">Select Shape</span>
+                                <Shapes size={16} /> <span className="translate-y-[1px]">{t('selectShape')}</span>
                             </h3>
                             <div className="grid grid-cols-3 gap-2">
                                 {shapes.map(shape => (
@@ -794,7 +796,7 @@ export function RightSidebar({
                         {/* Image Import */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Upload size={16} /> <span className="translate-y-[1px]">Import Mask</span>
+                                <Upload size={16} /> <span className="translate-y-[1px]">{t('importMask')}</span>
                             </h3>
                             <div className="relative group">
                                 <input
@@ -807,7 +809,7 @@ export function RightSidebar({
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                 />
                                 <div className="w-full border-2 border-dashed border-gray-600 rounded-lg p-4 text-center text-gray-400 group-hover:border-purple-500 group-hover:text-purple-400 transition-colors">
-                                    <span className="text-xs">Click or Drop Image</span>
+                                    <span className="text-xs">{t('clickOrDropImage')}</span>
                                 </div>
                             </div>
                         </div>
@@ -815,26 +817,26 @@ export function RightSidebar({
                         {/* Actions */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                                <Trash2 size={16} /> <span className="translate-y-[1px]">Actions</span>
+                                <Trash2 size={16} /> <span>{t('actions')}</span>
                             </h3>
                             <div className="space-y-2">
                                 <AnimatedButton
                                     onClick={onClearGrid}
                                     className="w-full py-2 bg-red-500/10 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                                 >
-                                    <Trash2 size={14} /> Clear Grid
+                                    <Trash2 size={14} /> {t('clearGrid')}
                                 </AnimatedButton>
                                 <AnimatedButton
                                     onClick={onCopyJson}
                                     className="w-full py-2 bg-blue-500/10 text-blue-400 border border-blue-500/50 rounded-lg hover:bg-blue-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                                 >
-                                    <Copy size={14} /> Copy JSON
+                                    <Copy size={14} /> {t('copyJson')}
                                 </AnimatedButton>
                                 <AnimatedButton
                                     onClick={onCopyJsonToGenerator}
                                     className="w-full py-2 bg-purple-500/10 text-purple-400 border border-purple-500/50 rounded-lg hover:bg-purple-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                                 >
-                                    <FileJson size={14} /> Copy to Generator
+                                    <FileJson size={14} /> {t('toGenerator')}
                                 </AnimatedButton>
                             </div>
                         </div>

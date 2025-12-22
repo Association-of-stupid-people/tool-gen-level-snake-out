@@ -4,13 +4,16 @@ import './index.css'
 import App from './App.tsx'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { NotificationProvider } from './contexts/NotificationContext'
+import { LanguageProvider } from './i18n'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <SettingsProvider>
-      <NotificationProvider>
-        <App />
-      </NotificationProvider>
-    </SettingsProvider>
+    <LanguageProvider>
+      <SettingsProvider>
+        <NotificationProvider>
+          <App />
+        </NotificationProvider>
+      </SettingsProvider>
+    </LanguageProvider>
   </StrictMode>,
 )
