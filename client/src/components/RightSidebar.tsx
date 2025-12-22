@@ -1,6 +1,6 @@
 import { CustomSelect } from './CustomSelect'
 import { ColorSelect } from './ColorSelect'
-import { Pencil, Eraser, Shapes, Upload, Trash2, Download, Copy, FileJson, Info, ArrowUpRight, Ban, FileUp, ClipboardPaste, Settings, Play, Calculator } from 'lucide-react'
+import { Pencil, Eraser, Shapes, Upload, Trash2, Download, Copy, FileJson, Info, ArrowUpRight, Ban, FileUp, ClipboardPaste, Settings, Play, Calculator, Puzzle } from 'lucide-react'
 import { useSettings } from '../contexts/SettingsContext'
 import { useNotification } from '../contexts/NotificationContext'
 import { AnimatedButton } from './AnimatedButton'
@@ -36,6 +36,7 @@ interface RightSidebarProps {
     onClearOverlays?: () => void
     onImportJson?: (json: string) => void
     onSimulate?: () => void
+    onFillGaps?: () => Promise<void>
 }
 
 export function RightSidebar({
@@ -58,7 +59,8 @@ export function RightSidebar({
     generatorOverlays,
     onClearOverlays,
     onImportJson,
-    onSimulate
+    onSimulate,
+    onFillGaps
 }: RightSidebarProps) {
     const { filenamePrefix, filenameSuffix, snakePalette, gridSize } = useSettings()
     const { addNotification } = useNotification()
@@ -66,6 +68,7 @@ export function RightSidebar({
     const [activeTab, setActiveTab] = useState<'tools' | 'actions'>('tools')
     const [difficultyData, setDifficultyData] = useState<any>(null)
     const [isCalculating, setIsCalculating] = useState(false)
+    const [isFillGapsLoading, setIsFillGapsLoading] = useState(false)
 
     // Clear difficulty data when grid changes
     useEffect(() => {
@@ -530,6 +533,26 @@ export function RightSidebar({
                             >
                                 <Play size={14} /> <span className="translate-y-[1px]">{t('simulate')}</span>
                             </AnimatedButton>
+                            <AnimatedButton
+                                onClick={async () => {
+                                    if (isFillGapsLoading || !onFillGaps) return
+                                    setIsFillGapsLoading(true)
+                                    try {
+                                        await onFillGaps()
+                                    } finally {
+                                        setIsFillGapsLoading(false)
+                                    }
+                                }}
+                                disabled={isFillGapsLoading}
+                                className={`w-full mt-2 py-2 bg-teal-500/10 text-teal-400 border border-teal-500/50 rounded-lg hover:bg-teal-500/20 transition-colors text-sm font-medium flex items-center justify-center gap-2 ${isFillGapsLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                {isFillGapsLoading ? (
+                                    <span className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <Puzzle size={14} />
+                                )}
+                                <span className="translate-y-[1px]">{t('fillGaps')}</span>
+                            </AnimatedButton>
                         </div>
 
                         {/* Difficulty Analysis */}
@@ -686,7 +709,6 @@ export function RightSidebar({
                                     </p>
                                 )}
                             </div>
-
 
 
                             {/* Debug Info */}

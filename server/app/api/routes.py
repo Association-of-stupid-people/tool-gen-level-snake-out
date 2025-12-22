@@ -86,6 +86,52 @@ def generate():
         print(f"LỖI KHI TẠO LEVEL: {e}")
         return jsonify({"error": f"Lỗi server khi tạo level: {e}"}), 500
 
+@api_bp.route('/fill-gaps', methods=['POST'])
+def fill_gaps():
+    """Fill remaining gaps in an existing level using smart simulation-based fill"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+        
+        rows = data.get('rows')
+        cols = data.get('cols')
+        snakes = data.get('snakes', [])
+        obstacles = data.get('obstacles', [])
+        custom_grid = data.get('grid')  # Boolean grid of valid cells
+        color_list = data.get('colors', ['#00FF00'])
+        
+        # Complexity params from frontend
+        min_len = data.get('min_len', 2)
+        max_len = data.get('max_len', 10)
+        min_bends = data.get('min_bends', 0)
+        max_bends = data.get('max_bends', 5)
+        
+        # Import smart fill function
+        from app.services.smart_fill import smart_fill_gaps
+        
+        result = smart_fill_gaps(
+            rows=rows,
+            cols=cols,
+            existing_snakes=snakes,
+            obstacles_input=obstacles,
+            custom_grid=custom_grid,
+            color_list=color_list,
+            min_len=min_len,
+            max_len=max_len,
+            min_bends=min_bends,
+            max_bends=max_bends
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"FILL GAPS ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
 @api_bp.route('/validate', methods=['POST'])
 def validate():
     try:

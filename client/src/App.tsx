@@ -30,7 +30,7 @@ function App() {
   const [isZoomInitialized, setIsZoomInitialized] = useState(false)
 
   // Global Settings
-  const { gridSize, backgroundColor, snakePalette } = useSettings()
+  const { gridSize, backgroundColor, snakePalette, lengthRange, bendsRange } = useSettings()
 
   // Grid Data State with History
   const [gridData, setGridData, undoGrid, redoGrid, canUndoGrid, canRedoGrid, resetGridData] = useHistory<boolean[][]>(
@@ -502,6 +502,51 @@ function App() {
     }
   }
 
+  const handleFillGaps = async () => {
+    try {
+      addNotification('info', 'Filling gaps...')
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/fill-gaps`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rows: gridSize.height,
+          cols: gridSize.width,
+          snakes: generatorOverlays.arrows.map(a => ({
+            path: a.path || [{ row: a.row, col: a.col }],
+            color: a.color
+          })),
+          obstacles: generatorOverlays.obstacles,
+          grid: gridData,
+          colors: snakePalette,
+          // Use complexity settings from LeftSidebar/Settings
+          min_len: lengthRange.min,
+          max_len: lengthRange.max,
+          min_bends: bendsRange.min,
+          max_bends: bendsRange.max
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.error) {
+        addNotification('error', `Fill gaps failed: ${result.error}`)
+        return
+      }
+
+      // Import the result to update overlays
+      if (result.level_json) {
+        handleImportJson(JSON.stringify(result.level_json))
+        addNotification('success', `Added ${result.snakes_added} snakes to fill gaps!`)
+      }
+    } catch (error) {
+      console.error('Fill gaps error:', error)
+      addNotification('error', 'Failed to fill gaps. Is the server running?')
+    }
+  }
+
 
   return (
     <div className="h-screen flex text-white" style={{ backgroundColor }}>
@@ -643,6 +688,7 @@ function App() {
           onClearOverlays={handleClearOverlays}
           onImportJson={handleImportJson}
           onSimulate={() => setIsSimulationOpen(true)}
+          onFillGaps={handleFillGaps}
         />
       )}
 

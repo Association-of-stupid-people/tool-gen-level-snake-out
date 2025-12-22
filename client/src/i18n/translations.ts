@@ -94,6 +94,7 @@ export const translations = {
     toGenerator: { EN: 'To Generator', VN: 'Đến tạo màn' },
     uploadImage: { EN: 'Upload Image', VN: 'Tải ảnh lên' },
     clearGrid: { EN: 'Clear Grid', VN: 'Xóa lưới' },
+    fillGaps: { EN: 'Smart Fill', VN: 'Lấp khoảng trống' },
 
     // Right Sidebar - Generator Tools
     drawingTools: { EN: 'Drawing Tools', VN: 'Công cụ vẽ' },
