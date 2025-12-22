@@ -14,8 +14,8 @@ class BaseStrategy(ABC):
         
         # Initialize NumPy Grid for Optimization
         import numpy as np
-        # 0 = Free, 1 = Blocked/Invalid
-        self.grid_array = np.ones((rows, cols), dtype=np.int8)
+        # 0 = Free, 1 = Blocked (Obstacle), 2 = Void (Invalid/Outside)
+        self.grid_array = np.full((rows, cols), 2, dtype=np.int8)
         
         # Set valid cells to 0 (Free)
         for r, c in valid_cells:

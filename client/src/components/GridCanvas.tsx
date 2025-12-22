@@ -19,6 +19,13 @@ interface GridCanvasProps {
     previewObstacle?: { cells: { row: number, col: number }[], type: string, color?: string }
     onItemContextMenu?: (e: React.MouseEvent, item: { type: 'arrow' | 'obstacle', data: any, index: number }) => void
     onValidate?: () => Promise<{ is_solvable: boolean, stuck_count?: number }>
+    // View State
+    zoom: number
+    setZoom: (zoom: number) => void
+    pan: { x: number, y: number }
+    setPan: (pan: { x: number, y: number }) => void
+    isZoomInitialized: boolean
+    setIsZoomInitialized: (initialized: boolean) => void
 }
 
 const CELL_SIZE = 25
@@ -36,13 +43,18 @@ export function GridCanvas({
     previewPath,
     previewObstacle,
     onItemContextMenu,
-    onValidate
+    onValidate,
+    zoom,
+    setZoom,
+    pan,
+    setPan,
+    isZoomInitialized,
+    setIsZoomInitialized
 }: GridCanvasProps) {
     const { addNotification } = useNotification()
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
-    const [zoom, setZoom] = useState(1)
-    const [pan, setPan] = useState({ x: 0, y: 0 })
+    // Local state removed in favor of props
     const [isDragging, setIsDragging] = useState(false)
     const [isDrawing, setIsDrawing] = useState(false)
     const [lastPos, setLastPos] = useState({ x: 0, y: 0 })
@@ -72,23 +84,28 @@ export function GridCanvas({
 
     // Resize canvas to fill container
     // Resize canvas to fill container
+    // Use ResizeObserver to handle container size changes (better than window resize)
     useLayoutEffect(() => {
-        const updateSize = () => {
-            if (containerRef.current) {
-                const rect = containerRef.current.getBoundingClientRect()
-                setCanvasSize({ width: rect.width, height: rect.height })
-            }
-        }
+        if (!containerRef.current) return
 
-        updateSize()
-        window.addEventListener('resize', updateSize)
-        return () => window.removeEventListener('resize', updateSize)
+        const resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                const { width, height } = entry.contentRect
+                setCanvasSize({ width, height })
+            }
+        })
+
+        resizeObserver.observe(containerRef.current)
+
+        return () => {
+            resizeObserver.disconnect()
+        }
     }, [])
 
-    // Center grid on load - only once per mount, not on container resize
+    // Center grid on load - only once, unless already initialized
     useEffect(() => {
         // Skip if already centered or canvas not measured yet
-        if (hasCenteredRef.current || canvasSize.width === 0) return
+        if (isZoomInitialized || canvasSize.width === 0) return
 
         const gridWidth = cols * CELL_SIZE
         const gridHeight = rows * CELL_SIZE
@@ -96,8 +113,8 @@ export function GridCanvas({
             x: (canvasSize.width - gridWidth) / 2,
             y: (canvasSize.height - gridHeight) / 2
         })
-        hasCenteredRef.current = true
-    }, [canvasSize, cols, rows])
+        setIsZoomInitialized(true)
+    }, [canvasSize, cols, rows, isZoomInitialized, setPan, setIsZoomInitialized])
 
     // Reset centering flag when grid dimensions change
     useEffect(() => {
@@ -589,7 +606,8 @@ export function GridCanvas({
         }
 
         ctx.restore()
-    }, [gridData, rows, cols, zoom, pan, currentTool, isDrawing, shapeStart, shapePreview, currentShape, overlays, readOnlyGrid, previewPath, previewObstacle, showOverlays])
+        ctx.restore()
+    }, [gridData, rows, cols, zoom, pan, currentTool, isDrawing, shapeStart, shapePreview, currentShape, overlays, readOnlyGrid, previewPath, previewObstacle, showOverlays, canvasSize])
 
     // Get grid coordinates from mouse event
     const getGridCoords = (e: React.MouseEvent) => {
@@ -675,7 +693,7 @@ export function GridCanvas({
         if (isDragging) {
             const dx = e.clientX - lastPos.x
             const dy = e.clientY - lastPos.y
-            setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }))
+            setPan({ x: pan.x + dx, y: pan.y + dy })
             setLastPos({ x: e.clientX, y: e.clientY })
         } else if (isDrawing) {
             const coords = getGridCoords(e)
@@ -774,7 +792,7 @@ export function GridCanvas({
                     max="500"
                     value={Math.round(zoom * 100)}
                     onChange={(e) => setZoom(Number(e.target.value) / 100)}
-                    className="w-24 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-purple-500 hover:accent-purple-400"
+                    className="w-24 accent-purple-500"
                 />
 
                 {/* Custom Spinner Input Cluster */}
@@ -796,13 +814,13 @@ export function GridCanvas({
                     {/* Custom Spinners */}
                     <div className="flex flex-col border-l border-gray-700 pl-1 ml-1 h-5 justify-between">
                         <button
-                            onClick={() => setZoom(prev => Math.min(5, prev + 0.1))}
+                            onClick={() => setZoom(Math.min(5, zoom + 0.1))}
                             className="h-2 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded-sm transition-colors"
                         >
                             <ChevronUp size={10} />
                         </button>
                         <button
-                            onClick={() => setZoom(prev => Math.max(0.1, prev - 0.1))}
+                            onClick={() => setZoom(Math.max(0.1, zoom - 0.1))}
                             className="h-2 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded-sm transition-colors"
                         >
                             <ChevronDown size={10} />

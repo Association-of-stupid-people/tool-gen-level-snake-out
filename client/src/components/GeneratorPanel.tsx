@@ -25,6 +25,13 @@ interface GeneratorPanelProps {
     nextItemId: number
     setNextItemId: React.Dispatch<React.SetStateAction<number>>
     onValidate?: () => Promise<{ is_solvable: boolean, stuck_count?: number }>
+    // View State
+    zoom: number
+    setZoom: (zoom: number) => void
+    pan: { x: number, y: number }
+    setPan: (pan: { x: number, y: number }) => void
+    isZoomInitialized: boolean
+    setIsZoomInitialized: (initialized: boolean) => void
 }
 
 function ColorDropdown({ color, palette, onChange }: { color: string, palette: string[], onChange: (color: string) => void }) {
@@ -80,7 +87,13 @@ export function GeneratorPanel({
     onObstacleDelete,
     nextItemId,
     setNextItemId,
-    onValidate
+    onValidate,
+    zoom,
+    setZoom,
+    pan,
+    setPan,
+    isZoomInitialized,
+    setIsZoomInitialized
 }: GeneratorPanelProps) {
     const { restrictDrawToColored, snakePalette, lengthRange, bendsRange } = useSettings()
 
@@ -480,6 +493,12 @@ export function GeneratorPanel({
                     })
                 }}
                 onValidate={onValidate}
+                zoom={zoom}
+                setZoom={setZoom}
+                pan={pan}
+                setPan={setPan}
+                isZoomInitialized={isZoomInitialized}
+                setIsZoomInitialized={setIsZoomInitialized}
             />
 
             {/* Context Menu */}

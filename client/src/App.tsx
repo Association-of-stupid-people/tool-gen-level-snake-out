@@ -22,6 +22,11 @@ function App() {
   const [currentTool, setCurrentTool] = useState<'pen' | 'eraser' | 'shape'>('pen')
   const [currentShape, setCurrentShape] = useState<'rectangle' | 'circle' | 'line' | 'triangle' | 'diamond' | 'frame'>('rectangle')
 
+  // View State (Zoom/Pan Persistence)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [isZoomInitialized, setIsZoomInitialized] = useState(false)
+
   // Global Settings
   const { gridSize, backgroundColor, snakePalette } = useSettings()
 
@@ -544,6 +549,12 @@ function App() {
                   cols={gridSize.width}
                   currentTool={currentTool}
                   currentShape={currentShape}
+                  zoom={zoom}
+                  setZoom={setZoom}
+                  pan={pan}
+                  setPan={setPan}
+                  isZoomInitialized={isZoomInitialized}
+                  setIsZoomInitialized={setIsZoomInitialized}
                 />
               </motion.div>
             )}
@@ -571,6 +582,12 @@ function App() {
                   nextItemId={nextItemId}
                   setNextItemId={setNextItemId}
                   onValidate={handleValidateLevel}
+                  zoom={zoom}
+                  setZoom={setZoom}
+                  pan={pan}
+                  setPan={setPan}
+                  isZoomInitialized={isZoomInitialized}
+                  setIsZoomInitialized={setIsZoomInitialized}
                 />
               </motion.div>
             )}

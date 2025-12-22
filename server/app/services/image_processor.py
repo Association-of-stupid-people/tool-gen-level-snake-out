@@ -26,8 +26,9 @@ def process_image_to_grid(image_data: bytes, grid_width: int, grid_height: int) 
         original_shape = img.shape
         print(f"[ImageProcessor] Original image: {original_shape[1]}x{original_shape[0]}")
         
-        # Resize to grid dimensions
-        img_resized = cv2.resize(img, (grid_width, grid_height), interpolation=cv2.INTER_AREA)
+        # Resize to grid dimensions (preserving aspect ratio)
+        img_resized = _resize_contain(img, grid_width, grid_height)
+        # img_resized = cv2.resize(img, (grid_width, grid_height), interpolation=cv2.INTER_AREA)
         gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
         
         # Strategy 1: K-means clustering (2 clusters for foreground/background)
@@ -277,7 +278,8 @@ def process_image_dark_regions(image_data: bytes, grid_width: int, grid_height: 
         if img is None:
             return {"error": "Failed to decode image"}
         
-        img_resized = cv2.resize(img, (grid_width, grid_height), interpolation=cv2.INTER_AREA)
+        img_resized = _resize_contain(img, grid_width, grid_height)
+        # img_resized = cv2.resize(img, (grid_width, grid_height), interpolation=cv2.INTER_AREA)
         gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
         
         if threshold is None:
@@ -300,3 +302,44 @@ def process_image_dark_regions(image_data: bytes, grid_width: int, grid_height: 
     except Exception as e:
         return {"error": str(e)}
 
+def _resize_contain(image, target_width, target_height):
+    """
+    Resize image to fit within target dimensions while maintaining aspect ratio.
+    Centers the image on a black background.
+    """
+    h, w = image.shape[:2]
+    image_aspect = w / h
+    target_aspect = target_width / target_height
+    
+    if image_aspect > target_aspect:
+        # Fit to width
+        new_w = target_width
+        new_h = int(target_width / image_aspect)
+    else:
+        # Fit to height
+        new_h = target_height
+        new_w = int(target_height * image_aspect)
+        
+    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    
+    # Determine background color from the edges of the resized image
+    # Sample top, bottom, left, and right edges
+    edge_pixels = np.vstack([
+        resized[0, :, :],
+        resized[-1, :, :],
+        resized[:, 0, :],
+        resized[:, -1, :]
+    ])
+    bg_color = np.median(edge_pixels, axis=0).astype(np.uint8)
+    
+    # Create canvas filled with detected background color
+    canvas = np.full((target_height, target_width, 3), bg_color, dtype=np.uint8)
+    
+    # Calculate offset
+    y_offset = (target_height - new_h) // 2
+    x_offset = (target_width - new_w) // 2
+    
+    # Paste
+    canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
+    
+    return canvas

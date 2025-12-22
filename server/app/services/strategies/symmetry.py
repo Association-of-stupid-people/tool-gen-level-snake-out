@@ -102,10 +102,10 @@ class SymmetricalStrategy(LayeredStrategy):
         
         self.log(f"Symmetrical: type={self._symmetry_type}, strictness={strictness}")
         
-        # Phase 1: Try to place symmetrical snakes
+        # Phase 1: Try to place symmetrical snakes using ADAPTIVE JOINT STEP
         snakes_placed = 0
         target = arrow_count
-        max_attempts = arrow_count * 3
+        max_attempts = arrow_count * 5 # Allow more attempts for complex joint generation
         attempts = 0
         
         while snakes_placed < target and attempts < max_attempts:
@@ -115,88 +115,53 @@ class SymmetricalStrategy(LayeredStrategy):
             if not candidates:
                 break
             
-            for start_pos in candidates[:10]:
-                path = self.find_solvable_path(start_pos, min_len, max_len, min_bends, max_bends)
-                if path:
-                    # Try to place mirrored paths
-                    mirrored_paths = self._mirror_path(path)
-                    all_valid = True
+            # Try candidates
+            path_found = False
+            for start_pos in candidates[:5]: # Try a few top candidates
+                # Identify mirrors for start_pos
+                mirror_starts = self._get_mirror_pos(start_pos)
+                
+                # Verify start and mirror starts are valid
+                if not self._are_positions_valid([start_pos] + mirror_starts):
+                    continue
                     
-                    # Collect all positions from original + all mirrored paths
-                    path_set = set(path)
-                    all_mirrored_positions = set()
+                # Attempt to find JOINT path
+                result = self.find_adaptive_symmetric_path(
+                    start_pos, mirror_starts, min_len, max_len, min_bends, max_bends
+                )
+                
+                if result:
+                    path_a, path_mirrors = result
                     
-                    for mpath in mirrored_paths:
-                        mpath_set = set(mpath)
-                        
-                        # Check if mirrored path is valid (not occupied, in valid cells)
-                        for pos in mpath:
-                            if pos in self.occupied or pos not in self.valid_cells:
-                                all_valid = False
-                                break
-                        
-                        if not all_valid:
-                            break
-                        
-                        # Check overlap with original path (unless same snake - symmetric)
-                        if mpath_set != path_set:
-                            overlap_with_original = mpath_set & path_set
-                            if overlap_with_original:
-                                all_valid = False
-                                break
-                        
-                        # Check overlap with other mirrored paths
-                        overlap_with_mirrors = mpath_set & all_mirrored_positions
-                        if overlap_with_mirrors:
-                            all_valid = False
-                            break
-                        
-                        # Check is_exitable for mirrored path (prevent stuck snakes)
-                        if len(mpath) >= 2 and mpath_set != path_set:
-                            mhead = mpath[-1]
-                            mneck = mpath[-2]
-                            m_direction = (mhead[0] - mneck[0], mhead[1] - mneck[1])
-                            # Temporarily add original path + previous mirrors to check
-                            temp_occupied = self.occupied | path_set | all_mirrored_positions
-                            old_occupied = self.occupied
-                            self.occupied = temp_occupied
-                            if not self.is_exitable(mhead, m_direction):
-                                all_valid = False
-                            self.occupied = old_occupied
-                            if not all_valid:
-                                break
-                        
-                        all_mirrored_positions.update(mpath_set)
-                    
-                    if not all_valid:
-                        continue  # Try next candidate
-                    
-                    # Place original snake
-                    self.occupied.update(path)
-                    for r, c in path: self.grid_array[r, c] = 1 # Sync Grid Array
-                    color = random.choice(self.color_list) if self.color_list else "#00FF00"
-                    self.snakes.append({
-                        "path": path,
-                        "color": color
-                    })
+                    # Place Original
+                    self._place_snake(path_a)
                     snakes_placed += 1
                     
-                    # Place mirrored snakes
-                    for mpath in mirrored_paths:
-                        if snakes_placed >= target:
-                            break
-                        # Skip if mpath is same as original (symmetric snake)
-                        if set(mpath) == set(path):
-                            continue
-                        self.occupied.update(mpath)
-                        for r, c in mpath: self.grid_array[r, c] = 1 # Sync Grid Array
-                        self.snakes.append({
-                            "path": mpath,
-                            "color": color  # Same color for symmetry
-                        })
-                        snakes_placed += 1
-                    break
-        
+                    # Place Mirrors
+                    color = self.snakes[-1]['color'] # Match color
+                    for m_path in path_mirrors:
+                         if snakes_placed >= target: break
+                         # Check if identical (e.g. center snake in odd grid)
+                         if set(m_path) == set(path_a): continue
+                         
+                         # Check against other placed mirrors to avoid duplicates in radial/both modes
+                         is_duplicate = False
+                         for existing_s in self.snakes[-len(path_mirrors):]: # Check recent snakes
+                             if set(existing_s['path']) == set(m_path):
+                                 is_duplicate = True
+                                 break
+                         if is_duplicate: continue
+
+                         self._place_snake(m_path, color)
+                         snakes_placed += 1
+                         
+                    path_found = True
+                    break # Success for this iteration
+            
+            if not path_found:
+                # If we fail to place symmetric snakes, maybe try a fallback or just skip
+                pass
+
         self.log(f"Symmetrical: placed {snakes_placed} of {target} snakes")
         
         # Phase 2: Bonus Fill with MIN_FRAGMENT
@@ -204,109 +169,274 @@ class SymmetricalStrategy(LayeredStrategy):
         
         return self.get_result()
 
-    def find_solvable_path(self, start_pos, min_len, max_len, min_bends, max_bends, heuristic_mode=0):
-        # Custom Python DFS to respect sort_neighbors (Symmetry Logic)
+    def _are_positions_valid(self, positions):
+        """Check if a list of positions are all valid and unoccupied."""
+        for p in positions:
+            if p not in self.valid_cells or p in self.occupied:
+                return False
+        # Check for conflicts within the list setup (e.g. overlapping starts)
+        if len(positions) != len(set(positions)):
+            # Overlapping start positions mean the snakes starts on top of each other.
+            # This is only valid if they are the SAME snake (e.g. center of self-symmetry),
+            # but current logic treats them as separate entities growing apart.
+            # For simplicity, distinct starts are safer for now unless we handle self-intersecting symmetry.
+            return False 
+        return True
+
+    def _place_snake(self, path, color=None):
+        self.occupied.update(path)
+        for r, c in path: self.grid_array[r, c] = 1
+        if color is None:
+            color = random.choice(self.color_list) if self.color_list else "#00FF00"
+        self.snakes.append({
+            "path": path,
+            "color": color
+        })
+
+    def find_adaptive_symmetric_path(self, start_a, starts_mirrors, min_len, max_len, min_bends, max_bends):
+        """
+        Generates path for A and its Mirrors simultaneously step-by-step.
+        Fallback: If strict mirror move is blocked, try other valid neighbors for mirror.
+        """
         stack = []
-        # (current_path, current_bends)
-        stack.append(([start_pos], 0))
+        # State: (path_a, [path_m1, path_m2...], bends_a, [bends_m1...])
+        initial_mirrors = [[m] for m in starts_mirrors]
+        stack.append(([start_a], initial_mirrors, 0, [0] * len(starts_mirrors)))
         
-        # Max nodes
-        max_nodes = 500
+        max_nodes = 3000 # Increased for complex branching
         nodes_visited = 0
+        
+        from ..utils import get_neighbors
         
         while stack:
             nodes_visited += 1
-            if nodes_visited > max_nodes:
-                break
-                
-            path, bends = stack.pop()
-            curr = path[-1]
-            path_len = len(path)
+            if nodes_visited > max_nodes: break
             
-            # Check Success
+            path_a, paths_mirrors, bends_a, bends_mirrors = stack.pop()
+            
+            curr_a = path_a[-1]
+            path_len = len(path_a)
+            
+            # --- CHECK SUCCESS ---
             if path_len >= min_len:
-                head = path[-1]
-                neck = path[-2] if len(path) > 1 else head
-                direction = (head[0] - neck[0], head[1] - neck[1])
+                # Validate Exitable for A
+                head_a = path_a[-1]; neck_a = path_a[-2]
+                dir_a = (head_a[0] - neck_a[0], head_a[1] - neck_a[1])
                 
-                # Use base class check (Numba)
-                if self.is_exitable(head, direction):
-                    should_stop = False
-                    if path_len >= max_len: should_stop = True
-                    elif random.random() < 0.3: should_stop = True
+                # Exitable check using Numba directly to support 'path' exclusion
+                # OPTIMIZATION: Combine all current partial paths into a TEMP GRID
+                # and pass that to Numba. Passing 'path' list triggers slow Numba reflection.
+                from .. import optimized_ops
+                
+                # Create mask
+                temp_grid = self.grid_array.copy()
+                
+                # Mark path A
+                for pr, pc in path_a: temp_grid[pr, pc] = 1
+                # Mark mirrors
+                for pm in paths_mirrors:
+                     for pr, pc in pm: temp_grid[pr, pc] = 1
+                
+                # Check A
+                if not optimized_ops.check_raycast_numba(self.rows, self.cols, temp_grid, head_a[0], head_a[1], dir_a[0], dir_a[1], None):
+                    pass # Fail
+                else:
+                    # Check Mirrors exitability
+                    all_mirrors_ok = True
+                    for i, pm in enumerate(paths_mirrors):
+                        hm = pm[-1]; nm = pm[-2]
+                        dm = (hm[0] - nm[0], hm[1] - nm[1])
+                        
+                        if not optimized_ops.check_raycast_numba(self.rows, self.cols, temp_grid, hm[0], hm[1], dm[0], dm[1], None):
+                            all_mirrors_ok = False
+                            break
                     
-                    if should_stop:
-                        return path
+                    if all_mirrors_ok:
+                        should_stop = False
+                        if path_len >= max_len: should_stop = True
+                        elif random.random() < 0.2: should_stop = True
+                        
+                        if should_stop:
+                            return path_a, paths_mirrors
 
-            if path_len >= max_len:
-                continue
-                
-            # Get Neighbors
-            from ..utils import get_neighbors
-            raw_nbs = get_neighbors(curr[0], curr[1], self.rows, self.cols)
-            valid_nbs = [n for n in raw_nbs if n in self.valid_cells and n not in self.occupied and n not in path]
+            if path_len >= max_len: continue
+
+            # --- GENERATE NEXT STEPS ---
             
-            # Sort using Symmetry Logic
-            sorted_nbs = self.sort_neighbors(valid_nbs, path)
+            # 1. Get Neighbors for A
+            raw_nbs_a = get_neighbors(curr_a[0], curr_a[1], self.rows, self.cols)
+            # Filter Valid A Neighbors (not in global occupied, not in own path, not in ANY mirror path)
+            # Collision check: A bumping into Mirrors
+            current_mirror_cells = set()
+            for pm in paths_mirrors: current_mirror_cells.update(pm)
             
-            # Add to stack
-            for n in reversed(sorted_nbs):
-                new_bends = bends
-                if len(path) > 1:
-                    prev = path[-2]
-                    d1 = (curr[0] - prev[0], curr[1] - prev[1])
-                    d2 = (n[0] - curr[0], n[1] - curr[1])
-                    if d1 != d2:
-                        new_bends += 1
+            valid_nbs_a = []
+            for n in raw_nbs_a:
+                if (n in self.valid_cells and 
+                    n not in self.occupied and 
+                    n not in path_a and 
+                    n not in current_mirror_cells):
+                    valid_nbs_a.append(n)
+            
+            random.shuffle(valid_nbs_a) # Randomize A's choices
+            
+            for next_a in valid_nbs_a:
+                # Calc Bends A
+                new_bends_a = bends_a
+                if len(path_a) > 1:
+                    prev_a = path_a[-2]
+                    d1 = (curr_a[0] - prev_a[0], curr_a[1] - prev_a[1])
+                    d2 = (next_a[0] - curr_a[0], next_a[1] - curr_a[1])
+                    if d1 != d2: new_bends_a += 1
+                if new_bends_a > max_bends: continue
+
+                # Now try to find move for EACH Mirror
+                new_paths_mirrors = []
+                new_bends_mirrors = []
+                possible_branch = True
                 
-                if new_bends <= max_bends:
-                    stack.append((path + [n], new_bends))
+                # Temp set for collision check within this step (Mirror B vs Mirror C)
+                step_occupied = set([next_a]) 
+                
+                # Pre-calculate all mirror bodies for fast lookup
+                # (current_mirror_cells was calculated above for A, can reuse if accessible or re-do)
+                all_mirrors_set = set()
+                for p in paths_mirrors: all_mirrors_set.update(p)
+                
+                for i, pm in enumerate(paths_mirrors):
+                    curr_m = pm[-1]
+                    
+                    # Ideal Mirror Move (Strict Symmetry)
+                    ideal_mirror_pos = self._calculate_ideal_mirror_next(curr_a, next_a, curr_m, i, start_a, initial_mirrors[i][0])
+                    
+                    # Candidates for Mirror: Priority [Ideal, Random Others...]
+                    m_candidates = []
+                    
+                    # Get all valid neighbors for this mirror head
+                    raw_nbs_m = get_neighbors(curr_m[0], curr_m[1], self.rows, self.cols)
+                    valid_nbs_m = []
+                    for nm in raw_nbs_m:
+                        if (nm in self.valid_cells and 
+                            nm not in self.occupied and 
+                            nm not in pm and 
+                            nm not in path_a and # Mirror bumping into A
+                            nm not in all_mirrors_set and # Mirror bumping into OTHER mirrors (body)
+                            nm not in step_occupied): # Mirror bumping into A-next or previous Mirrors-next
+                            valid_nbs_m.append(nm)
+                            
+                    if ideal_mirror_pos in valid_nbs_m:
+                        # Ideal is valid, put it first!
+                        m_candidates.append(ideal_mirror_pos)
+                        # Remove it from the others list to avoid duplicates
+                        valid_nbs_m.remove(ideal_mirror_pos)
+                    
+                    # Add others (Adaptive Fallback)
+                    random.shuffle(valid_nbs_m)
+                    m_candidates.extend(valid_nbs_m)
+                    
+                    # Try to pick ONE valid move for this mirror
+                    chosen_m = None
+                    chosen_bends_m = 0
+                    
+                    for cand_m in m_candidates:
+                        # Check Bends
+                        nb_m = bends_mirrors[i]
+                        if len(pm) > 1:
+                            prev_m = pm[-2]
+                            md1 = (curr_m[0] - prev_m[0], curr_m[1] - prev_m[1])
+                            md2 = (cand_m[0] - curr_m[0], cand_m[1] - curr_m[1])
+                            if md1 != md2: nb_m += 1
+                        
+                        if nb_m <= max_bends:
+                            chosen_m = cand_m
+                            chosen_bends_m = nb_m
+                            break # Found a valid move for this mirror
+                    
+                    if chosen_m:
+                        new_paths_mirrors.append(pm + [chosen_m])
+                        new_bends_mirrors.append(chosen_bends_m)
+                        step_occupied.add(chosen_m)
+                    else:
+                        possible_branch = False
+                        break # One mirror stuck -> Entire branch fails
+                
+                if possible_branch:
+                    # Push successful joint step
+                    stack.append((path_a + [next_a], new_paths_mirrors, new_bends_a, new_bends_mirrors))
                     
         return None
-    
-    def get_candidates(self):
-        """
-        Get candidates for symmetric placement.
-        Prefer cells that have valid mirror positions.
-        """
-        candidates = []
-        
-        for r in range(self.rows):
-            for c in range(self.cols):
-                if (r, c) in self.valid_cells and (r, c) not in self.occupied:
-                    # Check if mirror positions are also valid
-                    mirrors = self._get_mirror_pos((r, c))
-                    mirror_score = 0
-                    for m in mirrors:
-                        if m in self.valid_cells and m not in self.occupied:
-                            mirror_score += 1
-                    
-                    # Prefer cells with valid mirrors
-                    candidates.append(((r, c), -mirror_score))
-        
-        # Sort by mirror score (higher is better, so we negate)
-        candidates.sort(key=lambda x: x[1])
-        
-        limit = max(5, int(len(candidates) * 0.2))
-        pool = [x[0] for x in candidates[:limit]]
-        random.shuffle(pool)
-        return pool
 
-    def sort_neighbors(self, nbs, current_path):
+    def _calculate_ideal_mirror_next(self, prev_a, curr_a, prev_m, mirror_index, start_a, start_m):
         """
-        Prefer neighbors that maintain symmetry potential.
+        Calculates where the mirror 'should' go to maintain perfect symmetry.
+        This relies on the relative vector from previous step.
         """
-        strictness = self.config['strictness']
+        dr = curr_a[0] - prev_a[0]
+        dc = curr_a[1] - prev_a[1]
         
-        def score(n):
-            # Check if mirror positions are valid
-            mirrors = self._get_mirror_pos(n)
-            mirror_score = 0
-            for m in mirrors:
-                if m in self.valid_cells and m not in self.occupied and m not in current_path:
-                    mirror_score += 1
-            
-            # Higher mirror_score = lower score (better)
-            return -mirror_score * strictness + random.random() * (1 - strictness)
-            
-        return sorted(nbs, key=score)
+        # Determine symmetry logic based on config type
+        # Or simpler: Deduce relationship from starts (Robust)
+        # Relationship: Start_M is Transform(Start_A). 
+        # So Next_M should be Transform(Next_A).
+        
+        # Logic: 
+        # Horizontal (Row Flip): dr' = -dr, dc' = dc
+        # Vertical (Col Flip):   dr' = dr,  dc' = -dc
+        # Both/Radial:           dr' = -dr, dc' = -dc
+        
+        # Detecting relation from starts is tricky if starts are same (center).
+        # We rely on self._symmetry_type resolved in __init__
+        
+        target_dr =0
+        target_dc = 0
+        
+        if self._symmetry_type == 'horizontal':
+             target_dr = -dr; target_dc = dc
+        elif self._symmetry_type == 'vertical':
+             target_dr = dr; target_dc = -dc
+        elif self._symmetry_type in ['both', 'radial']:
+             target_dr = -dr; target_dc = -dc
+             
+        # Handling the composite 'both' correctly relative to the specific mirror instance
+        # if there are multiple mirrors (e.g. 4-way symmetry support in future)
+        # For now _get_mirror_pos returns a list.
+        # If type is 'both', it returns 1 mirror (Diagonal).
+        # Wait, _get_mirror_pos implementation:
+        # horizontal -> 1 mirror
+        # vertical -> 1 mirror
+        # both -> 1 mirror (diagonal) -- Wait, standard 'both' implies 4 way? 
+        # Looking at _get_mirror_pos:
+        # if 'horizontal' or 'both': append horiz_mirror
+        # if 'vertical' or 'both': append vert_mirror
+        # if 'both': append diag_mirror
+        # So 'both' generates 3 mirrors.
+        
+        # We need to match the specific mirror index to know which transform to apply.
+        # This is slightly implicit order dependency on _get_mirror_pos.
+        
+        # Order in _get_mirror_pos:
+        # 1. Horizontal (if horiz or both)
+        # 2. Vertical (if vert or both)
+        # 3. Diagonal (if both)
+        # 4. Radial (if radial) -> 1 mirror
+        
+        st = self._symmetry_type
+        
+        if st == 'horizontal':
+            target_dr = -dr; target_dc = dc
+        elif st == 'vertical':
+             target_dr = dr; target_dc = -dc
+        elif st == 'radial':
+             target_dr = -dr; target_dc = -dc
+        elif st == 'both':
+            # Index 0: Horizontal
+            # Index 1: Vertical
+            # Index 2: Diagonal
+            if mirror_index == 0: # Horiz
+                target_dr = -dr; target_dc = dc
+            elif mirror_index == 1: # Vert
+                target_dr = dr; target_dc = -dc
+            elif mirror_index == 2: # Diag
+                target_dr = -dr; target_dc = -dc
+                
+        return (prev_m[0] + target_dr, prev_m[1] + target_dc)

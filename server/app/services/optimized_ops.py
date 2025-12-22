@@ -19,10 +19,10 @@ def bfs_dist_map_numba(rows, cols, grid, boundary_dist=1):
                 is_exit = True
             
             if not is_exit:
-                if r > 0 and grid[r-1, c] == 1: is_exit = True
-                elif r < rows - 1 and grid[r+1, c] == 1: is_exit = True
-                elif c > 0 and grid[r, c-1] == 1: is_exit = True
-                elif c < cols - 1 and grid[r, c+1] == 1: is_exit = True
+                if r > 0 and grid[r-1, c] != 0: is_exit = True
+                elif r < rows - 1 and grid[r+1, c] != 0: is_exit = True
+                elif c > 0 and grid[r, c-1] != 0: is_exit = True
+                elif c < cols - 1 and grid[r, c+1] != 0: is_exit = True
             
             if is_exit:
                 dist_map[r, c] = boundary_dist
@@ -72,7 +72,11 @@ def check_raycast_numba(rows, cols, grid, r, c, dr, dc, path=None):
     curr_c = c + dc
     while 0 <= curr_r < rows and 0 <= curr_c < cols:
         # Check Global Grid
-        if grid[curr_r, curr_c] == 1: return False
+        # 1 = Blocked (Obstacle/Wall) -> FAIL
+        # 2 = Void (Outside) -> Walkable (Continue)
+        cell_val = grid[curr_r, curr_c]
+        if cell_val == 1: return False
+        # if cell_val == 2: pass (continue)
         
         # Check Current Path (Self-Collision along Ray)
         # Note: In standard Snake, head chasing tail (last segment) is valid.

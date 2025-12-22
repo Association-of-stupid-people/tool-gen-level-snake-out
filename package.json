@@ -2,8 +2,8 @@
     "name": "tool-gen-level-snake-out-root",
     "private": true,
     "scripts": {
-        "dev": "concurrently \"cd server && ../venv/bin/python run.py\" \"cd client && npm run dev\"",
-        "install:all": "npm install && cd client && npm install && cd .. && source venv/bin/activate && pip install -r server/requirements.txt"
+        "dev": "concurrently \"cd server && python run.py\" \"cd client && npm run dev\"",
+        "install:all": "npm install && cd client && npm install && cd .. && pip install -r server/requirements.txt"
     },
     "devDependencies": {
         "concurrently": "^9.1.0"

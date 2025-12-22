@@ -131,6 +131,7 @@ def min_fragment_bonus_fill(strategy, min_len, max_len, min_bends, max_bends):
                 
                 if path:
                     strategy.occupied.update(path)
+                    for r, c in path: strategy.grid_array[r, c] = 1 # Sync Grid Array for Numba
                     color = random.choice(strategy.color_list) if strategy.color_list else "#00FF00"
                     strategy.snakes.append({
                         "path": path,

@@ -38,18 +38,42 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
     const animatingSnakesRef = useRef<Set<number>>(new Set()) // Track snakes currently animating
     const gameIdRef = useRef(0) // Track game generation to stop old animations
 
+    // Zoom & Pan State
+    const [zoom, setZoom] = useState(1)
+    const [pan, setPan] = useState({ x: 0, y: 0 })
+    const [isDragging, setIsDragging] = useState(false)
+    const [lastPos, setLastPos] = useState({ x: 0, y: 0 })
+    const [isInitialized, setIsInitialized] = useState(false)
+
     // Keep gameState ref in sync for animation loops
     const gameStateRef = useRef<GameState>(gameState)
     useEffect(() => {
         gameStateRef.current = gameState
     }, [gameState])
 
-    // Initialize Game State
+    // Initialize Game State & Center Grid
     useEffect(() => {
         if (isOpen) {
             resetGame()
+            setIsInitialized(false) // Trigger centering on next render/effect
         }
     }, [isOpen, snakes])
+
+    // Center Grid Effect
+    useEffect(() => {
+        if (isOpen && !isInitialized && canvasRef.current) {
+            const canvas = canvasRef.current
+            const gridW = cols * CELL_SIZE
+            const gridH = rows * CELL_SIZE
+            // Center roughly
+            setPan({
+                x: (canvas.width - gridW) / 2,
+                y: (canvas.height - gridH) / 2
+            })
+            setZoom(1)
+            setIsInitialized(true)
+        }
+    }, [isOpen, isInitialized, rows, cols, CELL_SIZE])
 
     const resetGame = () => {
         gameIdRef.current++ // Invalidate old animations
@@ -184,16 +208,14 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
         const clickX = (e.clientX - rect.left) * scaleX
         const clickY = (e.clientY - rect.top) * scaleY
 
-        // Calculate grid position
+        // Calculate grid position (Inverse Transform: (Screen - Pan) / Zoom)
+        const gridX = (clickX - pan.x) / zoom
+        const gridY = (clickY - pan.y) / zoom
+
         const mapWidth = cols * CELL_SIZE
         const mapHeight = rows * CELL_SIZE
-        const offsetX = (canvas.width - mapWidth) / 2
-        const offsetY = (canvas.height - mapHeight) / 2
 
-        const gridX = clickX - offsetX
-        const gridY = clickY - offsetY
-
-        console.log('Click:', { clickX, clickY, gridX, gridY, offsetX, offsetY, scaleX, scaleY })
+        console.log('Click:', { clickX, clickY, gridX, gridY, pan, zoom })
 
         if (gridX < 0 || gridY < 0 || gridX >= mapWidth || gridY >= mapHeight) {
             console.log('Click outside grid')
@@ -362,11 +384,9 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
         const mapWidth = cols * CELL_SIZE
         const mapHeight = rows * CELL_SIZE
-        const offsetX = (canvas.width - mapWidth) / 2
-        const offsetY = (canvas.height - mapHeight) / 2
 
-        const gridX = mouseX - offsetX
-        const gridY = mouseY - offsetY
+        const gridX = (mouseX - pan.x) / zoom
+        const gridY = (mouseY - pan.y) / zoom
 
         if (gridX < 0 || gridY < 0 || gridX >= mapWidth || gridY >= mapHeight) {
             setHoveredSnake(null)
@@ -388,6 +408,56 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
             }
         }
         setHoveredSnake(null)
+        setHoveredSnake(null)
+    }
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (e.button === 1 || (e.button === 0 && e.shiftKey)) {  // Middle click or Shift+Click
+            setIsDragging(true)
+            setLastPos({ x: e.clientX, y: e.clientY })
+            e.preventDefault()
+        }
+    }
+
+    const handleMouseUp = () => {
+        setIsDragging(false)
+    }
+
+    const handleMouseMoveCombined = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        if (isDragging) {
+            const dx = e.clientX - lastPos.x
+            const dy = e.clientY - lastPos.y
+            setPan(p => ({ x: p.x + dx, y: p.y + dy }))
+            setLastPos({ x: e.clientX, y: e.clientY })
+        } else {
+            handleCanvasMove(e)
+        }
+    }
+
+    const handleWheel = (e: React.WheelEvent) => {
+        const canvas = canvasRef.current
+        if (!canvas) return
+
+        // Only zoom if canvas is hovered? (Implicit since event is on canvas)
+        e.preventDefault()
+
+        const rect = canvas.getBoundingClientRect()
+        const mouseX = e.clientX - rect.left
+        const mouseY = e.clientY - rect.top
+
+        // World before zoom
+        const worldX = (mouseX - pan.x) / zoom
+        const worldY = (mouseY - pan.y) / zoom
+
+        const delta = e.deltaY > 0 ? 0.9 : 1.1
+        const newZoom = Math.max(0.1, Math.min(5, zoom * delta))
+
+        // New Pan to keep world point under mouse
+        const newPanX = mouseX - worldX * newZoom
+        const newPanY = mouseY - worldY * newZoom
+
+        setZoom(newZoom)
+        setPan({ x: newPanX, y: newPanY })
     }
 
     // Render Canvas
@@ -403,15 +473,21 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
         // Centering
+        // Centering
         const mapWidth = cols * CELL_SIZE
         const mapHeight = rows * CELL_SIZE
-        const offsetX = (canvas.width - mapWidth) / 2
-        const offsetY = (canvas.height - mapHeight) / 2
+
+        // Initial centering is handled by state logic now
+        // const offsetX = (canvas.width - mapWidth) / 2
+        // const offsetY = (canvas.height - mapHeight) / 2
 
         ctx.save()
-        ctx.translate(offsetX, offsetY)
+        // ctx.translate(offsetX, offsetY)
+        ctx.translate(pan.x, pan.y)
+        ctx.scale(zoom, zoom)
 
-        // Draw Grid Walls
+        // Draw Grid Walls (REMOVED per user request - Simulation mode doesn't show valid area background)
+        /*
         ctx.fillStyle = '#374151' // Gray-700
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -420,6 +496,7 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
                 }
             }
         }
+        */
 
         // Draw Grid Lines (Subtle)
         ctx.strokeStyle = '#1f2937' // Gray-800
@@ -578,7 +655,9 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
         ctx.restore()
 
-    }, [isOpen, gameState, gridData, obstacles, rows, cols, hoveredSnake])
+        ctx.restore()
+
+    }, [isOpen, gameState, gridData, obstacles, rows, cols, hoveredSnake, zoom, pan])
 
     return (
         <AnimatePresence>
@@ -610,6 +689,22 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
                                 <div className="h-6 w-px bg-gray-700 mx-2" />
 
+                                {/* Zoom Slider */}
+                                <div className="flex items-center gap-2 mr-2">
+                                    <span className="text-xs text-gray-400">Zoom</span>
+                                    <input
+                                        type="range"
+                                        min="10"
+                                        max="300"
+                                        value={Math.round(zoom * 100)}
+                                        onChange={(e) => setZoom(Number(e.target.value) / 100)}
+                                        className="w-24 accent-purple-500"
+                                    />
+                                    <span className="text-xs text-gray-500 w-8">{Math.round(zoom * 100)}%</span>
+                                </div>
+
+                                <div className="h-6 w-px bg-gray-700 mx-2" />
+
                                 <button onClick={resetGame} className="p-2 hover:bg-gray-700 rounded text-yellow-400 transition-colors" title="Reset">
                                     <RotateCcw size={18} />
                                 </button>
@@ -628,8 +723,14 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
                                 height={Math.min(800, window.innerHeight - 200)}
                                 className="max-w-full max-h-full cursor-pointer"
                                 onClick={handleCanvasClick}
-                                onMouseMove={handleCanvasMove}
-                                onMouseLeave={() => setHoveredSnake(null)}
+                                onMouseMove={handleMouseMoveCombined}
+                                onMouseDown={handleMouseDown}
+                                onMouseUp={handleMouseUp}
+                                onWheel={handleWheel}
+                                onMouseLeave={() => {
+                                    setHoveredSnake(null)
+                                    setIsDragging(false)
+                                }}
                             />
 
                             {/* Win Overlay */}
