@@ -322,6 +322,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
 
     // const [jsonInput, setJsonInput] = useState('') // Lifted to App
     const [arrowCount, setArrowCount] = useState(10)
+    const [bonusFill, setBonusFill] = useState(true) // Default enabled for backward compat
     // Removed local state for length/bends ranges in favor of SettingsContext
 
     // Obstacles List
@@ -424,6 +425,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                 palette: snakePalette,
                 distributionStrategy,
                 strategyConfig,
+                bonusFill,
                 customInput // Pass the grid data!
             })
         }
@@ -579,6 +581,16 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                             <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${strategyConfig.avoid_corners ? 'translate-x-5' : 'translate-x-1'}`} />
                                         </button>
                                     </div>
+                                    {/* Bonus Fill Toggle */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-600/30">
+                                        <label className="text-xs text-gray-400">{t('bonusFill')}</label>
+                                        <button
+                                            onClick={() => setBonusFill(!bonusFill)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${bonusFill ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${bonusFill ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -611,7 +623,16 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                             <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${strategyConfig.corner_priority ? 'translate-x-5' : 'translate-x-1'}`} />
                                         </button>
                                     </div>
-
+                                    {/* Bonus Fill Toggle */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-600/30">
+                                        <label className="text-xs text-gray-400">{t('bonusFill')}</label>
+                                        <button
+                                            onClick={() => setBonusFill(!bonusFill)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${bonusFill ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${bonusFill ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -642,6 +663,16 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${strategyConfig.avoid_edges ? 'bg-purple-600' : 'bg-gray-600'}`}
                                         >
                                             <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${strategyConfig.avoid_edges ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+                                    {/* Bonus Fill Toggle */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-600/30">
+                                        <label className="text-xs text-gray-400">{t('bonusFill')}</label>
+                                        <button
+                                            onClick={() => setBonusFill(!bonusFill)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${bonusFill ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${bonusFill ? 'translate-x-5' : 'translate-x-1'}`} />
                                         </button>
                                     </div>
                                 </div>
@@ -686,6 +717,16 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                             />
                                         </div>
                                     </div>
+                                    {/* Bonus Fill Toggle */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-600/30">
+                                        <label className="text-xs text-gray-400">{t('bonusFill')}</label>
+                                        <button
+                                            onClick={() => setBonusFill(!bonusFill)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${bonusFill ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${bonusFill ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -729,6 +770,16 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                 ]}
                                             />
                                         </div>
+                                    </div>
+                                    {/* Bonus Fill Toggle */}
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-600/30">
+                                        <label className="text-xs text-gray-400">{t('bonusFill')}</label>
+                                        <button
+                                            onClick={() => setBonusFill(!bonusFill)}
+                                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${bonusFill ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                        >
+                                            <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${bonusFill ? 'translate-x-5' : 'translate-x-1'}`} />
+                                        </button>
                                     </div>
                                 </div>
                             )}

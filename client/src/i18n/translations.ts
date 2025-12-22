@@ -72,6 +72,8 @@ export const translations = {
     both: { EN: 'Both', VN: 'Cả hai' },
     radial: { EN: 'Radial', VN: 'Hướng tâm' },
     fallback: { EN: 'Fallback', VN: 'Dự phòng' },
+    bonusFill: { EN: 'Bonus Fill', VN: 'Tự động lấp' },
+    bonusFillDescription: { EN: 'Automatically fill remaining gaps', VN: 'Tự động lấp đầy khoảng trống còn lại' },
 
     // Right Sidebar - Editor Tools
     tools: { EN: 'Tools', VN: 'Công cụ' },

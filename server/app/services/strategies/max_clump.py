@@ -10,8 +10,8 @@ class MaxClumpStrategy(LayeredStrategy):
     Creates long snakes that span big voids.
     Uses MIN_FRAGMENT for bonus fill.
     """
-    # Disable default bonus fill, use MIN_FRAGMENT instead
-    ENABLE_BONUS_FILL = False
+    # Enable bonus fill by default (controlled by client)
+    ENABLE_BONUS_FILL = True
     
     # Configurable params with defaults
     DEFAULT_CONFIG = {
@@ -54,8 +54,9 @@ class MaxClumpStrategy(LayeredStrategy):
             if not success:
                self.log(f"Warning: Could not place Snake {i+1} (Strict Solvability Mode).")
         
-        # Phase 2: Bonus Fill with MIN_FRAGMENT
-        min_fragment_bonus_fill(self, min_len, max_len, min_bends, max_bends)
+        # Phase 2: Bonus Fill with MIN_FRAGMENT (only if enabled)
+        if self.ENABLE_BONUS_FILL:
+            min_fragment_bonus_fill(self, min_len, max_len, min_bends, max_bends)
         
         return self.get_result()
     

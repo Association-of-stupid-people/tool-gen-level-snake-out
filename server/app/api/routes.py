@@ -47,6 +47,10 @@ def generate():
             obstacles_list = []
             
         strategy = request.form.get('strategy', 'SMART_DYNAMIC')
+        
+        # Bonus Fill option
+        bonus_fill_str = request.form.get('bonus_fill', 'true')
+        bonus_fill = bonus_fill_str.lower() in ('true', '1', 'yes')
             
         custom_grid_str = request.form.get('custom_grid')
         custom_grid = None
@@ -70,7 +74,8 @@ def generate():
             max_bends=max_bends,
             obstacles_input=obstacles_list,
             color_list=color_list,
-            strategy_name=strategy
+            strategy_name=strategy,
+            bonus_fill=bonus_fill
         )
         
         return jsonify(result_data)

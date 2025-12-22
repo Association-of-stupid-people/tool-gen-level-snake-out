@@ -10,8 +10,8 @@ class SymmetricalStrategy(LayeredStrategy):
     Attempts to place snakes with mirror symmetry across axis.
     Uses MIN_FRAGMENT for bonus fill.
     """
-    # Disable default bonus fill, use MIN_FRAGMENT instead
-    ENABLE_BONUS_FILL = False
+    # Enable bonus fill by default (controlled by client)
+    ENABLE_BONUS_FILL = True
     
     # Configurable params with defaults
     DEFAULT_CONFIG = {
@@ -164,8 +164,9 @@ class SymmetricalStrategy(LayeredStrategy):
 
         self.log(f"Symmetrical: placed {snakes_placed} of {target} snakes")
         
-        # Phase 2: Bonus Fill with MIN_FRAGMENT
-        min_fragment_bonus_fill(self, min_len, max_len, min_bends, max_bends)
+        # Phase 2: Bonus Fill with MIN_FRAGMENT (only if enabled)
+        if self.ENABLE_BONUS_FILL:
+            min_fragment_bonus_fill(self, min_len, max_len, min_bends, max_bends)
         
         return self.get_result()
 

@@ -6,7 +6,8 @@ def generate_level(arrow_count, custom_grid=None,
                    min_arrow_length=3, max_arrow_length=10, 
                    min_bends=0, max_bends=10, 
                    obstacles_input=None, color_list=None,
-                   strategy_name='SMART_DYNAMIC'):
+                   strategy_name='SMART_DYNAMIC',
+                   bonus_fill=True):
                          
     logs = []
     
@@ -87,6 +88,9 @@ def generate_level(arrow_count, custom_grid=None,
     for attempt in range(MAX_RETRIES):
         # Create fresh strategy instance
         strategy = StrategyClass(ROWS, COLS, valid_cells, obstacles_map, color_list)
+        
+        # Override ENABLE_BONUS_FILL based on client request
+        strategy.ENABLE_BONUS_FILL = bonus_fill
         
         # Run Generation
         result = strategy.generate(arrow_count, min_arrow_length, max_arrow_length, min_bends, max_bends)

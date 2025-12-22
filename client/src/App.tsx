@@ -130,6 +130,8 @@ function App() {
       if (params.distributionStrategy) {
         formData.append('strategy', params.distributionStrategy)
       }
+      // Pass bonus fill option
+      formData.append('bonus_fill', params.bonusFill !== undefined ? String(params.bonusFill) : 'true')
 
       // Shape Input
       formData.append('shape_input', 'RECTANGLE_SHAPE')
