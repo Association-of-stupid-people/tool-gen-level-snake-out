@@ -2,7 +2,7 @@
 
 A powerful level generator tool for a Snake game variant, featuring a visual grid editor, parametric generation, and instant preview. Built with a React frontend and Python Flask backend.
 
-**Live:** [https://tool-gen-level-snake-out.vercel.app/](https://tool-gen-level-snake-out.vercel.app/)
+**Live:** [https://inartistically-spadelike-talitha.ngrok-free.dev](https://inartistically-spadelike-talitha.ngrok-free.dev)
 
 ## Architecture
 
