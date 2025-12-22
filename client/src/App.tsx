@@ -137,7 +137,7 @@ function App() {
         formData.append('custom_grid', params.customInput)
       }
 
-      const response = await fetch('/api/generate', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/generate`, {
         method: 'POST',
         body: formData,
       })
@@ -170,7 +170,7 @@ function App() {
 
   const handleValidateLevel = async () => {
     try {
-      const response = await fetch('/api/validate', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/validate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
