@@ -34,6 +34,10 @@ interface GeneratorPanelProps {
     setPan: (pan: { x: number, y: number }) => void
     isZoomInitialized: boolean
     setIsZoomInitialized: (initialized: boolean) => void
+    // Selection Props
+    selectedArrows?: Set<number>
+    setSelectedArrows?: React.Dispatch<React.SetStateAction<Set<number>>>
+    onDeleteSelectedArrows?: () => void
 }
 
 function ColorDropdown({ color, palette, onChange }: { color: string, palette: string[], onChange: (color: string) => void }) {
@@ -96,7 +100,10 @@ export function GeneratorPanel({
     pan,
     setPan,
     isZoomInitialized,
-    setIsZoomInitialized
+    setIsZoomInitialized,
+    selectedArrows = new Set(),
+    setSelectedArrows,
+    onDeleteSelectedArrows
 }: GeneratorPanelProps) {
     const { restrictDrawToColored, snakePalette, lengthRange, bendsRange } = useSettings()
     // Need to handle missing t if useLanguage isn't ready or mocked in some way, though it should be.
@@ -110,6 +117,22 @@ export function GeneratorPanel({
         isDrawing: boolean
         path: { row: number, col: number }[]
     }>({ isDrawing: false, path: [] })
+
+    // Marquee selection state
+    const [marqueeSelection, setMarqueeSelection] = useState<{
+        start: { row: number, col: number }
+        end: { row: number, col: number }
+    } | null>(null)
+    const [isMarqueeDragging, setIsMarqueeDragging] = useState(false)
+    const [rightClickStart, setRightClickStart] = useState<{ row: number, col: number, clientX: number, clientY: number } | null>(null)
+    const [justFinishedMarquee, setJustFinishedMarquee] = useState(false) // Flag to prevent context menu after marquee
+    const MARQUEE_DRAG_THRESHOLD = 5 // pixels
+
+    // Path editing state
+    const [editingArrowId, setEditingArrowId] = useState<number | null>(null)
+    const [editingEnd, setEditingEnd] = useState<'head' | 'tail' | null>(null)
+    const [isDraggingNode, setIsDraggingNode] = useState(false)
+    const [editingPath, setEditingPath] = useState<{ row: number, col: number }[] | null>(null)
 
     // Obstacle drag state for wall/wallbreak drawing
     const [obstacleDragState, setObstacleDragState] = useState<{
@@ -128,7 +151,7 @@ export function GeneratorPanel({
     const [contextMenu, setContextMenu] = useState<{
         x: number
         y: number
-        type: 'arrow' | 'obstacle'
+        type: 'arrow' | 'obstacle' | 'bulk'
         data: any
         index: number
     } | null>(null)
@@ -206,8 +229,424 @@ export function GeneratorPanel({
         return propGridData || null
     }, [jsonInput, propGridData])
 
-    const handleCellInteraction = (row: number, col: number) => {
+    // Bulk operations handlers
+    const handleRecolorSelected = (newColor: string) => {
+        if (!setSelectedArrows || selectedArrows.size === 0) return
+        setGeneratorOverlays(prev => ({
+            ...prev,
+            arrows: prev.arrows.map(a =>
+                selectedArrows.has(a.id) ? { ...a, color: newColor } : a
+            )
+        }))
+        setContextMenu(null)
+    }
+
+    const handleFlipSelected = () => {
+        if (!setSelectedArrows || selectedArrows.size === 0) return
+        setGeneratorOverlays(prev => ({
+            ...prev,
+            arrows: prev.arrows.map(a => {
+                if (!selectedArrows.has(a.id)) return a
+                if (!a.path || a.path.length < 2) return a
+
+                const reversedPath = [...a.path].reverse()
+                const newEnd = reversedPath[reversedPath.length - 1]
+                const prevCell = reversedPath[reversedPath.length - 2]
+
+                // Calculate new direction
+                let newDirection = a.direction
+                const dr = newEnd.row - prevCell.row
+                const dc = newEnd.col - prevCell.col
+                if (dr === -1) newDirection = 'up'
+                else if (dr === 1) newDirection = 'down'
+                else if (dc === -1) newDirection = 'left'
+                else if (dc === 1) newDirection = 'right'
+
+                return {
+                    ...a,
+                    row: newEnd.row,
+                    col: newEnd.col,
+                    direction: newDirection,
+                    path: reversedPath
+                }
+            })
+        }))
+        setContextMenu(null)
+    }
+
+    // Handle node handle click for path editing
+    const handleNodeHandleClick = (arrowId: number, end: 'head' | 'tail', row: number, col: number, e: React.MouseEvent) => {
+        if (selectedArrows.size !== 1) return
+
+        const arrow = generatorOverlays.arrows.find(a => a.id === arrowId)
+        if (!arrow || !arrow.path || arrow.path.length === 0) return
+
+        setEditingArrowId(arrowId)
+        setEditingEnd(end)
+        setIsDraggingNode(true)
+
+        // Initialize editing path
+        // For head editing, reverse path so we edit from start
+        // For tail editing, use path as-is
+        if (end === 'head') {
+            setEditingPath([...arrow.path].reverse())
+        } else {
+            setEditingPath([...arrow.path])
+        }
+    }
+
+    // Handle path editing drag
+    const handlePathEditMove = (row: number, col: number) => {
+        if (!editingArrowId || !editingEnd || !editingPath || editingPath.length === 0) return
+
+        const arrow = generatorOverlays.arrows.find(a => a.id === editingArrowId)
+        if (!arrow) return
+
+        // Get current path
+        let newPath = [...editingPath]
+        const lastCell = newPath[newPath.length - 1]
+
+        // Check if moving to adjacent cell
+        if (isAdjacent(lastCell, { row, col })) {
+            // Check if moving back into the path (shorten)
+            const indexInPath = newPath.findIndex(p => p.row === row && p.col === col)
+            if (indexInPath >= 0 && indexInPath < newPath.length - 1) {
+                // Shorten: remove cells from indexInPath+1 to end
+                newPath = newPath.slice(0, indexInPath + 1)
+            } else {
+                // Extend: check for collisions
+                // Check self-intersection (cannot cross own path except the handle itself)
+                const isSelfIntersecting = newPath.slice(0, -1).some(p => p.row === row && p.col === col)
+
+                // Check collision with other arrows
+                const isCollidingWithOtherArrow = generatorOverlays.arrows.some(otherArrow => {
+                    if (otherArrow.id === editingArrowId) return false // Skip self
+
+                    // Check if new cell overlaps with other arrow's head
+                    if (otherArrow.row === row && otherArrow.col === col) return true
+
+                    // Check if new cell overlaps with other arrow's path
+                    if (otherArrow.path?.some(p => p.row === row && p.col === col)) return true
+
+                    return false
+                })
+
+                if (!isSelfIntersecting && !isCollidingWithOtherArrow) {
+                    // Add new cell (extend)
+                    newPath = [...newPath, { row, col }]
+                }
+            }
+        }
+
+        setEditingPath(newPath)
+    }
+
+    // Commit path editing
+    const handlePathEditCommit = () => {
+        if (!editingArrowId || !editingEnd || !editingPath || editingPath.length === 0) {
+            setEditingArrowId(null)
+            setEditingEnd(null)
+            setIsDraggingNode(false)
+            setEditingPath(null)
+            return
+        }
+
+        const arrow = generatorOverlays.arrows.find(a => a.id === editingArrowId)
+        if (!arrow) return
+
+        // Validate path
+        let finalPath = [...editingPath]
+
+        // If editing head, reverse back to original order
+        if (editingEnd === 'head') {
+            finalPath = finalPath.reverse()
+        }
+
+        if (validatePath(finalPath)) {
+            // Update arrow with new path
+            if (editingEnd === 'tail') {
+                // Editing tail: update end cell and direction
+                let newEndCell = finalPath[finalPath.length - 1]
+                let newDirection = arrow.direction
+
+                // Calculate direction from last segment
+                if (finalPath.length >= 2) {
+                    const prevCell = finalPath[finalPath.length - 2]
+                    const dr = newEndCell.row - prevCell.row
+                    const dc = newEndCell.col - prevCell.col
+                    if (dr === -1) newDirection = 'up'
+                    else if (dr === 1) newDirection = 'down'
+                    else if (dc === -1) newDirection = 'left'
+                    else if (dc === 1) newDirection = 'right'
+                }
+
+                // Update arrow
+                setGeneratorOverlays(prev => ({
+                    ...prev,
+                    arrows: prev.arrows.map(a => {
+                        if (a.id !== editingArrowId) return a
+                        return {
+                            ...a,
+                            row: newEndCell.row,
+                            col: newEndCell.col,
+                            direction: newDirection,
+                            path: finalPath
+                        }
+                    })
+                }))
+            } else {
+                // Editing head: only update path (arrow.row/col remains the tail)
+                // Direction is calculated from tail segment
+                let newDirection = arrow.direction
+                if (finalPath.length >= 2) {
+                    const tailCell = finalPath[finalPath.length - 1]
+                    const prevCell = finalPath[finalPath.length - 2]
+                    const dr = tailCell.row - prevCell.row
+                    const dc = tailCell.col - prevCell.col
+                    if (dr === -1) newDirection = 'up'
+                    else if (dr === 1) newDirection = 'down'
+                    else if (dc === -1) newDirection = 'left'
+                    else if (dc === 1) newDirection = 'right'
+                }
+
+                setGeneratorOverlays(prev => ({
+                    ...prev,
+                    arrows: prev.arrows.map(a => {
+                        if (a.id !== editingArrowId) return a
+                        return {
+                            ...a,
+                            direction: newDirection,
+                            path: finalPath
+                        }
+                    })
+                }))
+            }
+        }
+
+        // Reset editing state
+        setEditingArrowId(null)
+        setEditingEnd(null)
+        setIsDraggingNode(false)
+        setEditingPath(null)
+    }
+
+    // Auto-set editing state when exactly 1 arrow is selected
+    useEffect(() => {
+        if (selectedArrows.size === 1 && !editingArrowId) {
+            const selectedArrow = generatorOverlays.arrows.find(a => selectedArrows.has(a.id))
+            if (selectedArrow && selectedArrow.path && selectedArrow.path.length > 0) {
+                // Ready for editing, but don't auto-start
+                // Handles will be shown, user needs to click on handle to start editing
+            } else {
+                // Arrow not found - clear editing state
+                setEditingArrowId(null)
+                setEditingEnd(null)
+                setIsDraggingNode(false)
+                setEditingPath(null)
+            }
+        } else if (selectedArrows.size !== 1) {
+            // Clear editing state if selection changes
+            if (editingArrowId) {
+                setEditingArrowId(null)
+                setEditingEnd(null)
+                setIsDraggingNode(false)
+                setEditingPath(null)
+            }
+        }
+
+        // Also check if editing arrow still exists
+        if (editingArrowId) {
+            const editingArrow = generatorOverlays.arrows.find(a => a.id === editingArrowId)
+            if (!editingArrow) {
+                // Arrow was deleted - clear editing state
+                setEditingArrowId(null)
+                setEditingEnd(null)
+                setIsDraggingNode(false)
+                setEditingPath(null)
+            }
+        }
+    }, [selectedArrows, generatorOverlays.arrows, editingArrowId])
+
+    // Handle arrow click for selection
+    const handleArrowClick = (arrowId: number, shiftKey: boolean) => {
+        if (!setSelectedArrows) return
+
+        if (shiftKey === true) {
+            // Shift+click: Add to selection (multi-select)
+            setSelectedArrows(prev => {
+                const newSet = new Set(prev)
+                newSet.add(arrowId)
+                return newSet
+            })
+        } else {
+            // Normal click: Single selection (replace existing selection)
+            setSelectedArrows(new Set([arrowId]))
+        }
+    }
+
+    // Handle right-click mouse events for marquee selection
+    const handleRightMouseDown = (row: number, col: number, e: React.MouseEvent) => {
+        if (!gridData || !gridData[row] || !setSelectedArrows) return
+
+        // Check if clicked on arrow or obstacle - if yes, don't start marquee
+        const clickedArrow = generatorOverlays.arrows.find(a => {
+            if (a.row === row && a.col === col) return true
+            if (a.path?.some(p => p.row === row && p.col === col)) return true
+            return false
+        })
+        const clickedObstacle = generatorOverlays.obstacles.find(o => {
+            if (o.row === row && o.col === col) return true
+            if (o.cells?.some(c => c.row === row && c.col === col)) return true
+            return false
+        })
+
+        if (clickedArrow || clickedObstacle) {
+            // Clicked on item - don't start marquee, let context menu handle it
+            return
+        }
+
+        // Clicked on empty space - start marquee
+        setRightClickStart({ row, col, clientX: e.clientX, clientY: e.clientY })
+        setMarqueeSelection({ start: { row, col }, end: { row, col } })
+        setIsMarqueeDragging(false) // Will be set to true when drag threshold is reached
+    }
+
+    const handleRightMouseMove = (row: number, col: number, e: React.MouseEvent) => {
+        if (!rightClickStart || !setSelectedArrows) return
+
+        // Always update end position for visual preview
+        // Calculate bounding box
+        const minRow = Math.min(rightClickStart.row, row)
+        const maxRow = Math.max(rightClickStart.row, row)
+        const minCol = Math.min(rightClickStart.col, col)
+        const maxCol = Math.max(rightClickStart.col, col)
+
+        // Check if drag threshold is reached
+        const dx = e.clientX - rightClickStart.clientX
+        const dy = e.clientY - rightClickStart.clientY
+        const distance = Math.sqrt(dx * dx + dy * dy)
+
+        // Find all cells that contain arrows within the box (only if threshold reached)
+        let arrowCells: { row: number, col: number }[] | undefined = undefined
+        if (distance > MARQUEE_DRAG_THRESHOLD) {
+            // Start marquee drag
+            setIsMarqueeDragging(true)
+
+            arrowCells = []
+            generatorOverlays.arrows.forEach(arrow => {
+                const allCells = arrow.path ? [...arrow.path] : []
+                allCells.push({ row: arrow.row, col: arrow.col })
+
+                allCells.forEach(cell => {
+                    if (cell.row >= minRow && cell.row <= maxRow &&
+                        cell.col >= minCol && cell.col <= maxCol) {
+                        // Avoid duplicates
+                        if (!arrowCells!.some(c => c.row === cell.row && c.col === cell.col)) {
+                            arrowCells!.push(cell)
+                        }
+                    }
+                })
+            })
+        }
+
+        // Always update marquee selection for visual preview
+        setMarqueeSelection(prev => ({
+            start: prev ? prev.start : { row: rightClickStart.row, col: rightClickStart.col },
+            end: { row, col },
+            arrowCells
+        }))
+    }
+
+    const handleRightMouseUp = (row: number, col: number, e: React.MouseEvent) => {
+        if (!rightClickStart || !setSelectedArrows) {
+            setRightClickStart(null)
+            return
+        }
+
+        const wasMarqueeDragging = isMarqueeDragging
+
+        if (isMarqueeDragging && marqueeSelection) {
+            // Finish marquee selection (drag completed)
+            const minRow = Math.min(marqueeSelection.start.row, marqueeSelection.end.row)
+            const maxRow = Math.max(marqueeSelection.start.row, marqueeSelection.end.row)
+            const minCol = Math.min(marqueeSelection.start.col, marqueeSelection.end.col)
+            const maxCol = Math.max(marqueeSelection.start.col, marqueeSelection.end.col)
+
+            // Find arrows that intersect with the selection box
+            const arrowsInBox = generatorOverlays.arrows.filter(arrow => {
+                // Check if any cell of the arrow is in the box
+                const allCells = arrow.path ? [...arrow.path] : []
+                // Include head cell
+                allCells.push({ row: arrow.row, col: arrow.col })
+
+                return allCells.some(cell =>
+                    cell.row >= minRow && cell.row <= maxRow &&
+                    cell.col >= minCol && cell.col <= maxCol
+                )
+            })
+
+            // Update selection
+            if (e.shiftKey) {
+                // Add to existing selection
+                setSelectedArrows(prev => {
+                    const newSet = new Set(prev)
+                    arrowsInBox.forEach(arrow => newSet.add(arrow.id))
+                    return newSet
+                })
+            } else {
+                // Replace selection
+                setSelectedArrows(new Set(arrowsInBox.map(arrow => arrow.id)))
+            }
+        } else {
+            // No drag - this was a click on empty space, deselect all
+            if (!e.shiftKey) {
+                setSelectedArrows(new Set())
+            }
+        }
+
+        // Clear marquee
+        setMarqueeSelection(null)
+        setIsMarqueeDragging(false)
+
+        // Set flag to prevent context menu if marquee was dragged
+        if (wasMarqueeDragging) {
+            setJustFinishedMarquee(true)
+            // Clear flag after a short delay
+            setTimeout(() => setJustFinishedMarquee(false), 100)
+        }
+
+        setRightClickStart(null)
+    }
+
+
+    const handleCellInteraction = (row: number, col: number, _mode?: 'draw' | 'erase', e?: React.MouseEvent) => {
         if (!gridData || !gridData[row] || gridData[row][col] === undefined) return
+
+        // Selection mode: always allow when clicking on arrow (regardless of tool)
+        // Also allow when tool is 'none' for empty space deselection
+        if (setSelectedArrows) {
+            // Check if clicked on an arrow (head or path)
+            const clickedArrow = generatorOverlays.arrows.find(a => {
+                // Check head cell
+                if (a.row === row && a.col === col) return true
+                // Check path cells
+                if (a.path?.some(p => p.row === row && p.col === col)) return true
+                return false
+            })
+
+            if (clickedArrow) {
+                // Clicked on arrow - always allow selection regardless of tool
+                const isShiftPressed = e?.shiftKey === true
+                handleArrowClick(clickedArrow.id, isShiftPressed)
+                return
+            } else {
+                // Clicked on empty space - deselect (regardless of tool, unless shift is held)
+                if (!e?.shiftKey && selectedArrows.size > 0) {
+                    setSelectedArrows(new Set())
+                }
+                // Don't return here - allow other tools to continue processing
+            }
+        }
 
         // Check if drawing is restricted to colored cells only
         if (restrictDrawToColored && !gridData[row][col]) return
@@ -443,11 +882,25 @@ export function GeneratorPanel({
         setObstacleDragState({ isDrawing: false, cells: [], type: '' })
     }
 
+    // Cancel drawing with right-click
+    const handleCancelDraw = (e: MouseEvent) => {
+        if (e.button === 2) { // Right click
+            e.preventDefault()
+            setArrowDragState({ isDrawing: false, path: [] })
+            setObstacleDragState({ isDrawing: false, cells: [], type: '' })
+        }
+    }
+
     // Global mouse up listener
     useEffect(() => {
         if (arrowDragState.isDrawing || obstacleDragState.isDrawing) {
             window.addEventListener('mouseup', handleMouseUp)
-            return () => window.removeEventListener('mouseup', handleMouseUp)
+            window.addEventListener('mousedown', handleCancelDraw)
+            window.addEventListener('contextmenu', (e) => e.preventDefault()) // Prevent context menu while drawing
+            return () => {
+                window.removeEventListener('mouseup', handleMouseUp)
+                window.removeEventListener('mousedown', handleCancelDraw)
+            }
         }
     }, [arrowDragState, obstacleDragState, generatorTool, lengthRange, bendsRange, generatorSettings, generatorOverlays])
 
@@ -485,18 +938,32 @@ export function GeneratorPanel({
                 overlays={generatorOverlays}
                 previewPath={arrowDragState.isDrawing ? arrowDragState.path : undefined}
                 previewObstacle={obstacleDragState.isDrawing ? { cells: obstacleDragState.cells, type: obstacleDragState.type } : undefined}
+                selectedArrows={selectedArrows}
+                marqueeSelection={marqueeSelection}
+                onRightMouseDown={handleRightMouseDown}
+                onRightMouseMove={handleRightMouseMove}
+                onRightMouseUp={handleRightMouseUp}
+                justFinishedMarquee={justFinishedMarquee}
+                editingArrowId={editingArrowId}
+                editingEnd={editingEnd}
+                editingPath={editingPath}
+                onNodeHandleClick={handleNodeHandleClick}
+                onPathEditMove={handlePathEditMove}
+                onPathEditCommit={handlePathEditCommit}
                 onItemContextMenu={(e, item) => {
                     setContextMenu({
                         x: e.clientX,
                         y: e.clientY,
                         type: item.type,
-                        data: {
-                            ...item.data,
-                            // Ensure ID is present even if item.data is just the clicked cell info
-                            id: item.type === 'arrow'
-                                ? generatorOverlays.arrows[item.index].id
-                                : generatorOverlays.obstacles[item.index].id
-                        },
+                        data: item.type === 'bulk'
+                            ? item.data
+                            : {
+                                ...item.data,
+                                // Ensure ID is present even if item.data is just the clicked cell info
+                                id: item.type === 'arrow'
+                                    ? generatorOverlays.arrows[item.index].id
+                                    : generatorOverlays.obstacles[item.index].id
+                            },
                         index: item.index
                     })
                 }}
@@ -516,18 +983,30 @@ export function GeneratorPanel({
                     style={{ left: contextMenu.x, top: contextMenu.y }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* Item ID Header */}
-                    <div className="px-4 py-2 border-b border-gray-700 bg-gray-900/50 rounded-t-lg">
-                        <span className="text-xs font-mono text-gray-400">{t('itemId')}: {contextMenu.data.id}</span>
-                    </div>
+                    {/* Item ID Header - only show for single items */}
+                    {contextMenu.type !== 'bulk' && (
+                        <div className="px-4 py-2 border-b border-gray-700 bg-gray-900/50 rounded-t-lg">
+                            <span className="text-xs font-mono text-gray-400">{t('itemId')}: {contextMenu.data.id}</span>
+                        </div>
+                    )}
 
-
+                    {/* Bulk Operations Header */}
+                    {contextMenu.type === 'bulk' && (
+                        <div className="px-4 py-2 border-b border-gray-700 bg-gray-900/50 rounded-t-lg">
+                            <span className="text-xs font-mono text-gray-400">{contextMenu.data.selectedCount} arrows selected</span>
+                        </div>
+                    )}
 
                     {/* Delete - always available */}
                     <button
                         className="w-full px-4 py-2 text-left text-sm text-white hover:bg-red-600/30 flex items-center gap-2"
                         onClick={() => {
-                            if (contextMenu.type === 'arrow') {
+                            if (contextMenu.type === 'bulk') {
+                                // Delete all selected arrows
+                                if (onDeleteSelectedArrows) {
+                                    onDeleteSelectedArrows()
+                                }
+                            } else if (contextMenu.type === 'arrow') {
                                 const deletedArrow = generatorOverlays.arrows[contextMenu.index]
                                 setGeneratorOverlays(prev => ({
                                     ...prev,
@@ -552,8 +1031,31 @@ export function GeneratorPanel({
                             setContextMenu(null)
                         }}
                     >
-                        <Trash2 size={14} /> {t('delete')}
+                        <Trash2 size={14} /> {contextMenu.type === 'bulk' ? `Delete ${contextMenu.data.selectedCount} arrows` : t('delete')}
                     </button>
+
+                    {/* Bulk Operations */}
+                    {contextMenu.type === 'bulk' && (
+                        <>
+                            <div className="border-t border-gray-700 my-1" />
+                            <button
+                                className="w-full px-4 py-2 text-left text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                                onClick={() => handleFlipSelected()}
+                            >
+                                <RotateCcw size={14} /> Flip Selected ({contextMenu.data.selectedCount})
+                            </button>
+                            <div className="px-4 py-2 text-sm text-gray-400 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    <Palette size={14} /> Recolor Selected:
+                                </div>
+                                <ColorDropdown
+                                    color={snakePalette[0] || '#ffffff'}
+                                    palette={snakePalette}
+                                    onChange={(color) => handleRecolorSelected(color)}
+                                />
+                            </div>
+                        </>
+                    )}
 
                     {/* Arrow-specific options */}
                     {contextMenu.type === 'arrow' && (

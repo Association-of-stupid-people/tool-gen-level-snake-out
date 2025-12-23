@@ -422,7 +422,7 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
         animatingSnakesRef.current.add(snakeId)
 
-        const MOVE_DURATION = 50 // ms for one cell movement
+        const MOVE_DURATION = 40 // ms for one cell movement
         let animationStartTime = Date.now()
         let shouldContinue = true
 

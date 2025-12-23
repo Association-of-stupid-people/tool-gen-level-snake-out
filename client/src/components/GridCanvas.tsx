@@ -4,7 +4,7 @@ import { useNotification } from '../contexts/NotificationContext'
 
 interface GridCanvasProps {
     gridData: boolean[][]
-    onCellToggle: (row: number, col: number, mode?: 'draw' | 'erase') => void
+    onCellToggle: (row: number, col: number, mode?: 'draw' | 'erase', e?: React.MouseEvent) => void
     onBulkCellToggle: (updates: { row: number, col: number }[], mode?: 'draw' | 'erase') => void
     rows: number
     cols: number
@@ -17,8 +17,20 @@ interface GridCanvasProps {
     }
     previewPath?: { row: number, col: number }[]
     previewObstacle?: { cells: { row: number, col: number }[], type: string, color?: string }
-    onItemContextMenu?: (e: React.MouseEvent, item: { type: 'arrow' | 'obstacle', data: any, index: number }) => void
+    onItemContextMenu?: (e: React.MouseEvent, item: { type: 'arrow' | 'obstacle' | 'bulk', data: any, index: number }) => void
     onValidate?: () => Promise<{ is_solvable: boolean, stuck_count?: number }>
+    selectedArrows?: Set<number>
+    marqueeSelection?: { start: { row: number, col: number }, end: { row: number, col: number }, arrowCells?: { row: number, col: number }[] } | null
+    onRightMouseDown?: (row: number, col: number, e: React.MouseEvent) => void
+    onRightMouseMove?: (row: number, col: number, e: React.MouseEvent) => void
+    onRightMouseUp?: (row: number, col: number, e: React.MouseEvent) => void
+    justFinishedMarquee?: boolean
+    editingArrowId?: number | null
+    editingEnd?: 'head' | 'tail' | null
+    editingPath?: { row: number, col: number }[] | null
+    onNodeHandleClick?: (arrowId: number, end: 'head' | 'tail', row: number, col: number, e: React.MouseEvent) => void
+    onPathEditMove?: (row: number, col: number) => void
+    onPathEditCommit?: () => void
     // View State
     zoom: number
     setZoom: (zoom: number) => void
@@ -44,6 +56,18 @@ export function GridCanvas({
     previewObstacle,
     onItemContextMenu,
     onValidate,
+    selectedArrows = new Set(),
+    marqueeSelection = null,
+    onRightMouseDown,
+    onRightMouseMove,
+    onRightMouseUp,
+    justFinishedMarquee = false,
+    editingArrowId = null,
+    editingEnd = null,
+    editingPath = null,
+    onNodeHandleClick,
+    onPathEditMove,
+    onPathEditCommit,
     zoom,
     setZoom,
     pan,
@@ -561,7 +585,146 @@ export function GridCanvas({
                         }
                     }
                 }
+
+                // Draw selection highlight for selected arrows
+                if (selectedArrows.has(arrow.id)) {
+                    // Highlight path cells
+                    const allCells = arrow.path ? [...arrow.path] : []
+                    // Include head cell if not in path
+                    if (!allCells.some(c => c.row === arrow.row && c.col === arrow.col)) {
+                        allCells.push({ row: arrow.row, col: arrow.col })
+                    }
+
+                    allCells.forEach(cell => {
+                        const x = cell.col * CELL_SIZE
+                        const y = cell.row * CELL_SIZE
+                        // Draw semi-transparent blue fill (same as marquee selection)
+                        ctx.fillStyle = 'rgba(59, 130, 246, 0.3)' // Blue tint
+                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
+                    })
+                }
             })
+
+            // Draw node handles for path editing (only when exactly 1 arrow is selected)
+            if (readOnlyGrid && selectedArrows.size === 1 && overlays) {
+                const selectedArrow = overlays.arrows.find(a => selectedArrows.has(a.id))
+                if (selectedArrow && selectedArrow.path && selectedArrow.path.length > 0) {
+                    // Head node (start cell)
+                    const headCell = selectedArrow.path[0]
+                    // Tail node (end cell)
+                    const tailCell = { row: selectedArrow.row, col: selectedArrow.col }
+                    
+                    // Calculate handle positions
+                    let headHandleCell = headCell
+                    let tailHandleCell = tailCell
+                    
+                    // Head handle: cell đầu + 1 theo direction ngược lại từ segment đầu (từ path[1] đến path[0])
+                    if (selectedArrow.path.length >= 2) {
+                        const firstCell = selectedArrow.path[0]
+                        const secondCell = selectedArrow.path[1]
+                        const dr = firstCell.row - secondCell.row // Direction ngược lại: từ secondCell đến firstCell
+                        const dc = firstCell.col - secondCell.col
+                        // Áp dụng direction này từ head
+                        if (dr === -1) headHandleCell = { row: headCell.row - 1, col: headCell.col } // Going up
+                        else if (dr === 1) headHandleCell = { row: headCell.row + 1, col: headCell.col } // Going down
+                        else if (dc === -1) headHandleCell = { row: headCell.row, col: headCell.col - 1 } // Going left
+                        else if (dc === 1) headHandleCell = { row: headCell.row, col: headCell.col + 1 } // Going right
+                    } else {
+                        // Fallback: use arrow direction
+                        const dir = selectedArrow.direction
+                        if (dir === 'up') headHandleCell = { row: headCell.row - 1, col: headCell.col }
+                        else if (dir === 'down') headHandleCell = { row: headCell.row + 1, col: headCell.col }
+                        else if (dir === 'left') headHandleCell = { row: headCell.row, col: headCell.col - 1 }
+                        else if (dir === 'right') headHandleCell = { row: headCell.row, col: headCell.col + 1 }
+                    }
+                    
+                    // Tail handle: cell cuối + 1 theo direction từ segment cuối (từ path[path.length-2] đến path[path.length-1])
+                    if (selectedArrow.path.length >= 2) {
+                        const prevToLast = selectedArrow.path[selectedArrow.path.length - 2]
+                        const lastPathCell = selectedArrow.path[selectedArrow.path.length - 1]
+                        const dr = lastPathCell.row - prevToLast.row // Direction từ prevToLast đến lastPathCell
+                        const dc = lastPathCell.col - prevToLast.col
+                        // Áp dụng direction này từ tail
+                        if (dr === -1) tailHandleCell = { row: tailCell.row - 1, col: tailCell.col } // Going up
+                        else if (dr === 1) tailHandleCell = { row: tailCell.row + 1, col: tailCell.col } // Going down
+                        else if (dc === -1) tailHandleCell = { row: tailCell.row, col: tailCell.col - 1 } // Going left
+                        else if (dc === 1) tailHandleCell = { row: tailCell.row, col: tailCell.col + 1 } // Going right
+                    } else {
+                        // Fallback: use arrow direction
+                        const dir = selectedArrow.direction
+                        if (dir === 'up') tailHandleCell = { row: tailCell.row - 1, col: tailCell.col }
+                        else if (dir === 'down') tailHandleCell = { row: tailCell.row + 1, col: tailCell.col }
+                        else if (dir === 'left') tailHandleCell = { row: tailCell.row, col: tailCell.col - 1 }
+                        else if (dir === 'right') tailHandleCell = { row: tailCell.row, col: tailCell.col + 1 }
+                    }
+                    
+                    // Position handles at center of cells
+                    const headX = headHandleCell.col * CELL_SIZE + CELL_SIZE / 2
+                    const headY = headHandleCell.row * CELL_SIZE + CELL_SIZE / 2
+                    const tailX = tailHandleCell.col * CELL_SIZE + CELL_SIZE / 2
+                    const tailY = tailHandleCell.row * CELL_SIZE + CELL_SIZE / 2
+
+                    // Draw handles (simple circle with + sign)
+                    const handleRadius = 7
+                    const isEditingHead = editingArrowId === selectedArrow.id && editingEnd === 'head'
+                    const isEditingTail = editingArrowId === selectedArrow.id && editingEnd === 'tail'
+
+                    // Helper function to draw handle with + sign
+                    const drawHandle = (x: number, y: number, isActive: boolean) => {
+                        // Circle
+                        ctx.fillStyle = isActive ? '#3b82f6' : '#6b7280'
+                        ctx.strokeStyle = '#ffffff'
+                        ctx.lineWidth = 2
+                        ctx.beginPath()
+                        ctx.arc(x, y, handleRadius, 0, Math.PI * 2)
+                        ctx.fill()
+                        ctx.stroke()
+
+                        // Draw + sign
+                        ctx.strokeStyle = '#ffffff'
+                        ctx.lineWidth = 2
+                        ctx.lineCap = 'round'
+                        // Horizontal line
+                        ctx.beginPath()
+                        ctx.moveTo(x - 4, y)
+                        ctx.lineTo(x + 4, y)
+                        ctx.stroke()
+                        // Vertical line
+                        ctx.beginPath()
+                        ctx.moveTo(x, y - 4)
+                        ctx.lineTo(x, y + 4)
+                        ctx.stroke()
+                    }
+
+                    // Head handle
+                    drawHandle(headX, headY, isEditingHead)
+                    
+                    // Tail handle
+                    drawHandle(tailX, tailY, isEditingTail)
+                }
+            }
+
+            // Draw editing path preview
+            if (editingPath && editingPath.length > 0) {
+                ctx.beginPath()
+                ctx.strokeStyle = '#00ff00'
+                ctx.lineWidth = 3
+                ctx.lineCap = 'round'
+                ctx.lineJoin = 'round'
+                ctx.setLineDash([5, 5])
+
+                const startX = editingPath[0].col * CELL_SIZE + CELL_SIZE / 2
+                const startY = editingPath[0].row * CELL_SIZE + CELL_SIZE / 2
+                ctx.moveTo(startX, startY)
+
+                for (let i = 1; i < editingPath.length; i++) {
+                    const px = editingPath[i].col * CELL_SIZE + CELL_SIZE / 2
+                    const py = editingPath[i].row * CELL_SIZE + CELL_SIZE / 2
+                    ctx.lineTo(px, py)
+                }
+                ctx.stroke()
+                ctx.setLineDash([]) // Reset
+            }
 
             // Draw Preview Path
             if (previewPath && previewPath.length > 0) {
@@ -605,9 +768,41 @@ export function GridCanvas({
             }
         }
 
+        // Draw Marquee Selection Box
+        if (marqueeSelection && readOnlyGrid) {
+            const minRow = Math.min(marqueeSelection.start.row, marqueeSelection.end.row)
+            const maxRow = Math.max(marqueeSelection.start.row, marqueeSelection.end.row)
+            const minCol = Math.min(marqueeSelection.start.col, marqueeSelection.end.col)
+            const maxCol = Math.max(marqueeSelection.start.col, marqueeSelection.end.col)
+
+            // Draw selection box border (preview)
+            const x = minCol * CELL_SIZE
+            const y = minRow * CELL_SIZE
+            const width = (maxCol - minCol + 1) * CELL_SIZE
+            const height = (maxRow - minRow + 1) * CELL_SIZE
+
+            ctx.strokeStyle = '#3b82f6' // Blue
+            ctx.lineWidth = 2
+            ctx.setLineDash([5, 5])
+            ctx.strokeRect(x, y, width, height)
+            ctx.setLineDash([]) // Reset
+
+            // Draw highlight only on cells that contain arrows (if arrowCells exists)
+            if (marqueeSelection.arrowCells && marqueeSelection.arrowCells.length > 0) {
+                marqueeSelection.arrowCells.forEach(cell => {
+                    const cellX = cell.col * CELL_SIZE
+                    const cellY = cell.row * CELL_SIZE
+                    
+                    // Draw semi-transparent fill
+                    ctx.fillStyle = 'rgba(59, 130, 246, 0.3)' // Blue tint
+                    ctx.fillRect(cellX, cellY, CELL_SIZE, CELL_SIZE)
+                })
+            }
+        }
+
         ctx.restore()
         ctx.restore()
-    }, [gridData, rows, cols, zoom, pan, currentTool, isDrawing, shapeStart, shapePreview, currentShape, overlays, readOnlyGrid, previewPath, previewObstacle, showOverlays, canvasSize])
+    }, [gridData, rows, cols, zoom, pan, currentTool, isDrawing, shapeStart, shapePreview, currentShape, overlays, readOnlyGrid, previewPath, previewObstacle, showOverlays, canvasSize, selectedArrows, marqueeSelection, editingArrowId, editingEnd, editingPath])
 
     // Get grid coordinates from mouse event
     const getGridCoords = (e: React.MouseEvent) => {
@@ -625,6 +820,12 @@ export function GridCanvas({
 
     // Handle right-click context menu
     const handleContextMenu = (e: React.MouseEvent) => {
+        // Prevent context menu if marquee is active or was just finished
+        if (marqueeSelection || justFinishedMarquee) {
+            e.preventDefault()
+            return
+        }
+
         e.preventDefault()
         if (!overlays || !onItemContextMenu) return
 
@@ -652,23 +853,150 @@ export function GridCanvas({
             onItemContextMenu(e, { type: 'obstacle', data: overlays.obstacles[obstacleIndex], index: obstacleIndex })
             return
         }
+
+        // Check if clicked on empty space with multiple arrows selected (bulk operations)
+        if (selectedArrows && selectedArrows.size > 1) {
+            onItemContextMenu(e, { type: 'bulk', data: { selectedCount: selectedArrows.size }, index: -1 })
+            return
+        }
     }
 
     const handleMouseDown = (e: React.MouseEvent) => {
         const coords = getGridCoords(e)
 
-        // Pan (Middle click or Shift+Left)
-        if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+        // Pan (Middle click)
+        if (e.button === 1) {
             setIsDragging(true)
             setLastPos({ x: e.clientX, y: e.clientY })
             return
         }
 
+        // Check if clicking on node handle (for path editing)
+        if (readOnlyGrid && e.button === 0 && coords && overlays && selectedArrows.size === 1 && onNodeHandleClick) {
+            const selectedArrow = overlays.arrows.find(a => selectedArrows.has(a.id))
+            if (selectedArrow && selectedArrow.path && selectedArrow.path.length > 0) {
+                const headCell = selectedArrow.path[0]
+                const tailCell = { row: selectedArrow.row, col: selectedArrow.col }
+                
+                // Calculate handle positions: place at center of next cell in path direction
+                let headHandleCell = headCell
+                let tailHandleCell = tailCell
+                
+                // Head handle: cell đầu + 1 theo direction ngược lại từ segment đầu (từ path[1] đến path[0])
+                if (selectedArrow.path.length >= 2) {
+                    const firstCell = selectedArrow.path[0]
+                    const secondCell = selectedArrow.path[1]
+                    const dr = firstCell.row - secondCell.row // Direction ngược lại: từ secondCell đến firstCell
+                    const dc = firstCell.col - secondCell.col
+                    // Áp dụng direction này từ head
+                    if (dr === -1) headHandleCell = { row: headCell.row - 1, col: headCell.col } // Going up
+                    else if (dr === 1) headHandleCell = { row: headCell.row + 1, col: headCell.col } // Going down
+                    else if (dc === -1) headHandleCell = { row: headCell.row, col: headCell.col - 1 } // Going left
+                    else if (dc === 1) headHandleCell = { row: headCell.row, col: headCell.col + 1 } // Going right
+                } else {
+                    // Fallback: use arrow direction
+                    const dir = selectedArrow.direction
+                    if (dir === 'up') headHandleCell = { row: headCell.row - 1, col: headCell.col }
+                    else if (dir === 'down') headHandleCell = { row: headCell.row + 1, col: headCell.col }
+                    else if (dir === 'left') headHandleCell = { row: headCell.row, col: headCell.col - 1 }
+                    else if (dir === 'right') headHandleCell = { row: headCell.row, col: headCell.col + 1 }
+                }
+                
+                // Tail handle: cell cuối + 1 theo direction từ segment cuối (từ path[path.length-2] đến path[path.length-1])
+                if (selectedArrow.path.length >= 2) {
+                    const prevToLast = selectedArrow.path[selectedArrow.path.length - 2]
+                    const lastPathCell = selectedArrow.path[selectedArrow.path.length - 1]
+                    const dr = lastPathCell.row - prevToLast.row // Direction từ prevToLast đến lastPathCell
+                    const dc = lastPathCell.col - prevToLast.col
+                    // Áp dụng direction này từ tail
+                    if (dr === -1) tailHandleCell = { row: tailCell.row - 1, col: tailCell.col } // Going up
+                    else if (dr === 1) tailHandleCell = { row: tailCell.row + 1, col: tailCell.col } // Going down
+                    else if (dc === -1) tailHandleCell = { row: tailCell.row, col: tailCell.col - 1 } // Going left
+                    else if (dc === 1) tailHandleCell = { row: tailCell.row, col: tailCell.col + 1 } // Going right
+                } else {
+                    // Fallback: use arrow direction
+                    const dir = selectedArrow.direction
+                    if (dir === 'up') tailHandleCell = { row: tailCell.row - 1, col: tailCell.col }
+                    else if (dir === 'down') tailHandleCell = { row: tailCell.row + 1, col: tailCell.col }
+                    else if (dir === 'left') tailHandleCell = { row: tailCell.row, col: tailCell.col - 1 }
+                    else if (dir === 'right') tailHandleCell = { row: tailCell.row, col: tailCell.col + 1 }
+                }
+                
+                // Calculate handle positions at center of cells
+                const handleRadius = 7
+                const headHandleX = headHandleCell.col * CELL_SIZE + CELL_SIZE / 2
+                const headHandleY = headHandleCell.row * CELL_SIZE + CELL_SIZE / 2
+                const tailHandleX = tailHandleCell.col * CELL_SIZE + CELL_SIZE / 2
+                const tailHandleY = tailHandleCell.row * CELL_SIZE + CELL_SIZE / 2
+                
+                // Get mouse position in canvas coordinates
+                const canvas = canvasRef.current
+                if (canvas) {
+                    const rect = canvas.getBoundingClientRect()
+                    const worldX = (e.clientX - rect.left - pan.x) / zoom
+                    const worldY = (e.clientY - rect.top - pan.y) / zoom
+                    
+                    // Check if clicked on head handle (within handle radius) - prioritize handle clicks
+                    const distToHead = Math.sqrt(Math.pow(worldX - headHandleX, 2) + Math.pow(worldY - headHandleY, 2))
+                    if (distToHead <= handleRadius + 5) { // +5 for easier clicking
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsDrawing(true)
+                        onNodeHandleClick(selectedArrow.id, 'head', headCell.row, headCell.col, e)
+                        return
+                    }
+                    
+                    // Check if clicked on tail handle (within handle radius) - prioritize handle clicks
+                    const distToTail = Math.sqrt(Math.pow(worldX - tailHandleX, 2) + Math.pow(worldY - tailHandleY, 2))
+                    if (distToTail <= handleRadius + 5) { // +5 for easier clicking
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsDrawing(true)
+                        onNodeHandleClick(selectedArrow.id, 'tail', tailCell.row, tailCell.col, e)
+                        return
+                    }
+                }
+            }
+        }
+
         if (!coords || coords.row < 0 || coords.row >= rows || coords.col < 0 || coords.col >= cols) return
 
+        // Check if clicking on arrow in readOnlyGrid mode (for selection)
+        // Only check if we didn't already handle a handle click (handles are checked above)
+        if (readOnlyGrid && e.button === 0 && overlays) {
+            const clickedArrow = overlays.arrows.find(a => {
+                // Check head cell
+                if (a.row === coords.row && a.col === coords.col) return true
+                // Check path cells
+                if (a.path?.some(p => p.row === coords.row && p.col === coords.col)) return true
+                return false
+            })
+            
+            // If clicking on arrow, allow selection (don't pan)
+            if (clickedArrow) {
+                setIsDrawing(true)
+                onCellToggle(coords.row, coords.col, 'draw', e)
+                return
+            }
+        }
+
+        // Pan (Shift+Left) - only when not clicking on arrow
+        if (e.button === 0 && e.shiftKey) {
+            setIsDragging(true)
+            setLastPos({ x: e.clientX, y: e.clientY })
+            return
+        }
+
         if (e.button === 2) {
-            // Right click - only erase if NOT readOnlyGrid (readOnlyGrid uses context menu)
-            if (readOnlyGrid) return // Let context menu handle it
+            // Right click
+            if (readOnlyGrid) {
+                // In Generator mode, handle marquee selection
+                if (onRightMouseDown && coords) {
+                    setIsDrawing(true) // Enable drag tracking for right-click drag
+                    onRightMouseDown(coords.row, coords.col, e)
+                }
+                return
+            }
             e.preventDefault()
             setIsDrawing(true)
             // Just toggle directly to false
@@ -682,9 +1010,9 @@ export function GridCanvas({
                 setShapeStart(coords)
                 setShapePreview(coords)
             } else {
-                // Pen or Eraser
+                // Pen or Eraser, or Selection mode (readOnlyGrid)
                 setIsDrawing(true)
-                onCellToggle(coords.row, coords.col, 'draw')
+                onCellToggle(coords.row, coords.col, 'draw', e)
             }
         }
     }
@@ -699,9 +1027,19 @@ export function GridCanvas({
             const coords = getGridCoords(e)
             if (!coords) return
 
-            // Handle Right Click Drag (Erase)
+            // Handle path editing drag
+            if (readOnlyGrid && editingArrowId && onPathEditMove) {
+                onPathEditMove(coords.row, coords.col)
+                return
+            }
+
+            // Handle Right Click Drag
             if (e.buttons === 2) {
-                if (coords.row >= 0 && coords.row < rows && coords.col >= 0 && coords.col < cols) {
+                if (readOnlyGrid && onRightMouseMove && coords) {
+                    // Marquee selection in Generator mode
+                    onRightMouseMove(coords.row, coords.col, e)
+                } else if (!readOnlyGrid && coords.row >= 0 && coords.row < rows && coords.col >= 0 && coords.col < cols) {
+                    // Erase in Grid Editor mode
                     onCellToggle(coords.row, coords.col, 'erase')
                 }
                 return
@@ -719,13 +1057,29 @@ export function GridCanvas({
             // Handle Standard Drawing (Pen/Eraser)
             if (coords.row >= 0 && coords.row < rows && coords.col >= 0 && coords.col < cols) {
                 if (currentTool !== 'shape') {
-                    onCellToggle(coords.row, coords.col, 'draw')
+                    onCellToggle(coords.row, coords.col, 'draw', e)
                 }
             }
         }
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e?: React.MouseEvent) => {
+        // Handle path editing commit
+        if (readOnlyGrid && editingArrowId && onPathEditCommit) {
+            onPathEditCommit()
+            setIsDrawing(false) // End drag tracking
+        }
+
+        // Handle right-click up for marquee
+        if (readOnlyGrid && e && e.button === 2 && onRightMouseUp) {
+            const coords = getGridCoords(e)
+            if (coords) {
+                onRightMouseUp(coords.row, coords.col, e)
+            }
+            setIsDrawing(false) // End drag tracking
+            return
+        }
+
         // Commit Shape
         if (isDrawing && currentTool === 'shape' && shapeStart && shapePreview) {
             const updates: { row: number, col: number }[] = []
@@ -904,8 +1258,8 @@ export function GridCanvas({
                         className="cursor-crosshair w-full h-full"
                         onMouseDown={handleMouseDown}
                         onMouseMove={handleMouseMove}
-                        onMouseUp={handleMouseUp}
-                        onMouseLeave={handleMouseUp}
+                        onMouseUp={(e) => handleMouseUp(e)}
+                        onMouseLeave={() => handleMouseUp()}
                         onWheel={handleWheel}
                         onContextMenu={handleContextMenu}
                     />
@@ -914,3 +1268,4 @@ export function GridCanvas({
         </div >
     )
 }
+

@@ -61,6 +61,9 @@ function App() {
     obstacles: { id: number, row: number, col: number, type: string, color?: string, count?: number, cells?: { row: number, col: number }[], direction?: string, snakeId?: number, keySnakeId?: number, lockedSnakeId?: number, countdown?: number }[]
   }>({ arrows: [], obstacles: [] })
 
+  // Arrow Selection State (for multi-select in Generator mode)
+  const [selectedArrows, setSelectedArrows] = useState<Set<number>>(new Set())
+
   // Callback ref to auto-add obstacle from LeftSidebar  
   const obstacleTypeUsedCallback = React.useRef<((data: { type: string, row: number, col: number, color?: string, count?: number, keySnakeId?: number, lockedSnakeId?: number }) => void) | null>(null)
   const obstacleUpdateCallback = React.useRef<((row: number, col: number, updates: any) => void) | null>(null)
@@ -296,7 +299,24 @@ function App() {
 
   const handleClearOverlays = () => {
     setGeneratorOverlays({ arrows: [], obstacles: [] })
+    setSelectedArrows(new Set()) // Clear selection too
     addNotification('success', 'Overlays cleared!')
+  }
+
+  // Delete selected arrows
+  const handleDeleteSelectedArrows = () => {
+    if (selectedArrows.size === 0) return
+    setGeneratorOverlays(prev => ({
+      ...prev,
+      arrows: prev.arrows.filter(a => !selectedArrows.has(a.id))
+    }))
+    addNotification('success', `Deleted ${selectedArrows.size} arrow(s)`)
+    setSelectedArrows(new Set())
+  }
+
+  // Clear arrow selection
+  const handleClearSelection = () => {
+    setSelectedArrows(new Set())
   }
 
   const handleObstacleDataUpdate = (id: string | number, updates: any) => {
@@ -654,6 +674,9 @@ function App() {
                   setPan={setPan}
                   isZoomInitialized={isZoomInitialized}
                   setIsZoomInitialized={setIsZoomInitialized}
+                  selectedArrows={selectedArrows}
+                  setSelectedArrows={setSelectedArrows}
+                  onDeleteSelectedArrows={handleDeleteSelectedArrows}
                 />
               </motion.div>
             )}
