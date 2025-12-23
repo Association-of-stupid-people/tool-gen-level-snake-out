@@ -133,12 +133,13 @@ def calculate(snakes, obstacles, rows=None, cols=None):
     """
     Calculate difficulty score for a level.
     
-    Formula (Max = 100):
-    - S (Snake Load): 30 pts
-    - F (Freedom): 40 pts
-    - O (Obstacles): 30 pts
+    Args:
+        snakes: List of snake data
+        obstacles: List of obstacle data
+        rows, cols: Grid size from settings (used for validation)
     
-    Grid bounds are calculated from data, not from frontend params.
+    Grid bounds (bounding box) are calculated from data for density calculation.
+    But validator uses rows/cols from settings to determine exits.
     """
     
     # Calculate grid bounds from data
@@ -231,7 +232,12 @@ def calculate(snakes, obstacles, rows=None, cols=None):
                 path_tuples.append((p[0], p[1]))
         validator_snakes.append({'path': path_tuples})
     
-    validation_result = validate_level(validator_snakes, obstacles_map, bounds_h, bounds_w)
+    # Use rows/cols from settings for validation (determines exit edges)
+    # If not provided, fall back to bounding box
+    validate_rows = rows if rows else bounds_h
+    validate_cols = cols if cols else bounds_w
+    
+    validation_result = validate_level(validator_snakes, obstacles_map, validate_rows, validate_cols)
     solve_depth = validation_result.get('steps', 1)
     avg_stuck_ratio = validation_result.get('avg_stuck_ratio', 0)
     
