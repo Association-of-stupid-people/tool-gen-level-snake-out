@@ -622,9 +622,9 @@ export function GeneratorPanel({
     const handleCellInteraction = (row: number, col: number, _mode?: 'draw' | 'erase', e?: React.MouseEvent) => {
         if (!gridData || !gridData[row] || gridData[row][col] === undefined) return
 
-        // Selection mode: always allow when clicking on arrow (regardless of tool)
-        // Also allow when tool is 'none' for empty space deselection
-        if (setSelectedArrows) {
+        // Selection mode: only allow when NOT actively drawing an arrow/obstacle
+        // This prevents accidental selection when mouse moves over existing arrows while drawing
+        if (setSelectedArrows && !arrowDragState.isDrawing && !obstacleDragState.isDrawing) {
             // Check if clicked on an arrow (head or path)
             const clickedArrow = generatorOverlays.arrows.find(a => {
                 // Check head cell
@@ -635,7 +635,7 @@ export function GeneratorPanel({
             })
 
             if (clickedArrow) {
-                // Clicked on arrow - always allow selection regardless of tool
+                // Clicked on arrow - allow selection regardless of tool
                 const isShiftPressed = e?.shiftKey === true
                 handleArrowClick(clickedArrow.id, isShiftPressed)
                 return
