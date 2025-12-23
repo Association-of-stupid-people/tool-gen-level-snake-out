@@ -90,6 +90,7 @@ export const translations = {
 
     // Right Sidebar - Actions
     actions: { EN: 'Actions', VN: 'Hành động' },
+    files: { EN: 'Files', VN: 'Tệp tin' },
     copyJson: { EN: 'Copy JSON', VN: 'Sao chép JSON' },
     toGenerator: { EN: 'To Generator', VN: 'Đến tạo màn' },
     uploadImage: { EN: 'Upload Image', VN: 'Tải ảnh lên' },
@@ -129,6 +130,10 @@ export const translations = {
     levelComplete: { EN: 'Level Complete!', VN: 'Hoàn thành màn!' },
     tapToMove: { EN: 'Tap any snake to move it', VN: 'Nhấn vào rắn để di chuyển' },
     movableGlow: { EN: 'Movable snakes will glow on hover', VN: 'Rắn có thể di chuyển sẽ sáng khi rê chuột' },
+    autoPlay: { EN: 'Auto Play', VN: 'Tự động chơi' },
+    stopAutoPlay: { EN: 'Stop', VN: 'Dừng' },
+    levelStuck: { EN: 'Level is stuck! No movable snakes.', VN: 'Màn bị kẹt! Không có rắn nào di chuyển được.' },
+    autoPlayActive: { EN: 'Auto-playing...', VN: 'Đang tự động chơi...' },
 
     // Grid Editor Section
     gridEditorSection: { EN: 'Grid Editor', VN: 'Chỉnh sửa lưới' },
@@ -154,7 +159,6 @@ export const translations = {
     gridUpdated: { EN: 'Grid updated', VN: 'Đã cập nhật lưới' },
     overlaysCleared: { EN: 'Overlays cleared!', VN: 'Đã xóa overlay!' },
     levelGenerated: { EN: 'Level generated successfully!', VN: 'Tạo màn thành công!' },
-    levelStuck: { EN: 'Level is STUCK!', VN: 'Màn bị KẸT!' },
     snakesCannotExit: { EN: 'snakes cannot exit', VN: 'rắn không thể thoát' },
     failedToConnect: { EN: 'Failed to connect to server', VN: 'Không thể kết nối server' },
     imageImported: { EN: 'Image imported!', VN: 'Đã nhập ảnh!' },

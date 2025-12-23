@@ -65,7 +65,7 @@ export function RightSidebar({
     const { filenamePrefix, filenameSuffix, snakePalette, gridSize } = useSettings()
     const { addNotification } = useNotification()
     const { t } = useLanguage()
-    const [activeTab, setActiveTab] = useState<'tools' | 'actions'>('tools')
+    const [activeTab, setActiveTab] = useState<'tools' | 'files'>('tools')
     const [difficultyData, setDifficultyData] = useState<any>(null)
     const [isCalculating, setIsCalculating] = useState(false)
     const [isFillGapsLoading, setIsFillGapsLoading] = useState(false)
@@ -333,13 +333,13 @@ export function RightSidebar({
                             <span className="translate-y-[1px]">{t('tools')}</span>
                         </button>
                         <button
-                            onClick={() => setActiveTab('actions')}
+                            onClick={() => setActiveTab('files')}
                             className={`
                                 relative z-10 flex-1 flex items-center justify-center text-xs font-medium transition-colors duration-200
-                                ${activeTab === 'actions' ? 'text-white' : 'text-gray-400 hover:text-gray-300'}
+                                ${activeTab === 'files' ? 'text-white' : 'text-gray-400 hover:text-gray-300'}
                             `}
                         >
-                            {activeTab === 'actions' && (
+                            {activeTab === 'files' && (
                                 <motion.div
                                     layoutId="rs-tab"
                                     className="absolute inset-[3px] bg-purple-600 rounded-md shadow-sm -z-10"
@@ -347,7 +347,7 @@ export function RightSidebar({
                                 />
                             )}
                             <Download size={14} className="mr-2" />
-                            <span className="translate-y-[1px]">{t('actions')}</span>
+                            <span className="translate-y-[1px]">{t('files')}</span>
                         </button>
                     </div>
                 </div>
@@ -604,8 +604,8 @@ export function RightSidebar({
                         </div>
                     </div>
 
-                    {/* Actions Tab Content */}
-                    <div className={activeTab === 'actions' ? 'block animate-in fade-in duration-300' : 'hidden'}>
+                    {/* Files Tab Content */}
+                    <div className={activeTab === 'files' ? 'block animate-in fade-in duration-300' : 'hidden'}>
                         <div className="space-y-4">
                             {/* Level Config */}
                             <div className="bg-gray-700/50 rounded-xl p-4">

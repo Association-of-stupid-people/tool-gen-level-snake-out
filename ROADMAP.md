@@ -1,79 +1,174 @@
 # Lộ trình dự án: Snake Level Generator 🐍
 
-Lộ trình này phác thảo kế hoạch phát triển cho công cụ Snake Level Generator, được chia thành 5 giai đoạn. Giai đoạn 1 & 2 tập trung vào khả năng chỉnh sửa và tạo level cơ bản. Giai đoạn 3 tập trung vào refactor logic server để đảm bảo tạo level thông minh. Giai đoạn 4 & 5 giới thiệu các tính năng nâng cao và tích hợp hệ sinh thái.
+Lộ trình này phác thảo kế hoạch phát triển cho công cụ Snake Level Generator. Các giai đoạn 1-3 đã hoàn thành, tập trung vào Grid Editor, Generator, và Thuật toán thông minh. Giai đoạn 4-5 sẽ giới thiệu các tính năng nâng cao và tích hợp hệ sinh thái.
 
-## Giai đoạn 1: Trình chỉnh sửa vùng thông minh (Panel 1) ✅
+---
 
-**Trọng tâm:** Xây dựng Grid Editor để xác định khu vực chơi.
+### 🧩 **Phase 1 — Smart Region Editor (Panel 1)**
 
-- **Hệ thống lưới**: Lưới tương tác nơi người dùng có thể vẽ/xóa ô.
-- **Import ảnh & Trace tự động**: Tải lên ảnh mask và tự động chuyển đổi thành ô lưới.
-- **Công cụ vẽ**: Bút, Hình chữ nhật, Xóa.
-- **Layer**: Lớp ảnh nền tham chiếu vs Lớp Grid dữ liệu.
+**Status: ✅ Complete**
 
-## Giai đoạn 2: Tạo & Logic nâng cao (Panel 2) ✅
+#### **1.1 — Grid Canvas System**
 
-**Trọng tâm:** Tạo tham số với các yếu tố gameplay phức tạp và validate dữ liệu.
+- [x] Interactive canvas with zoom/pan.
+- [x] Cell drawing with mouse events.
+- [x] Real-time grid state updates.
+- [x] Responsive layout & sizing.
 
-- **Tham số tạo**: Số lượng mũi tên, Độ dài (Min-Max), Góc cua (Min-Max).
-- **Hệ thống chướng ngại vật**: Tường, Tường phá, Hố, Rắn đóng băng, Rắn ổ khóa.
-- **Cấu hình cảnh**: Bảng màu rắn, Màu nền, Kích thước lưới.
-- **Validation**: Xem lại dữ liệu sau khi tạo (Review Mode).
+#### **1.2 — Drawing Tools**
 
-## Giai đoạn 3: Refactor Server & Logic Tạo Thông Minh (Hiện tại) 🚧
+- [x] Pen tool (draw cells).
+- [x] Eraser tool (remove cells).
+- [x] Shape tools: Rectangle, Circle, Line.
+- [x] Advanced shapes: Triangle, Diamond, Frame.
+- [x] Bulk cell toggle for performance.
 
-**Trọng tâm:** Viết lại Backend để đảm bảo thuật toán tạo level lấp đầy lưới thông minh và chính xác.
+#### **1.3 — Image Import & Auto-Trace**
 
-- **Input JSON Grid**: Server nhận trực tiếp cấu trúc lưới (True/False) từ Client thay vì chỉ dùng Shape định sẵn.
-- **Thuật toán Lấp đầy (Full Coverage)**:
-  - Đảm bảo rắn được tạo ra sẽ lấp kín toàn bộ các ô được đánh dấu `True` trên lưới.
-  - Tôn trọng các giới hạn: Số lượng rắn, Độ dài Min/Max, Số góc cua.
-- **Xử lý Chướng ngại vật**:
-  - Nhận danh sách chướng ngại vật từ Client (đã đặt trước) và trừ các ô này ra khỏi không gian trống trước khi tạo rắn.
-- **Hệ thống Log & Warning Thông minh**:
-  - Nếu không thể lấp đầy (do không đủ không gian, không thỏa mãn ràng buộc độ dài...), Server sẽ trả về danh sách cảnh báo chi tiết (vd: "Còn 5 ô trống chưa được lấp").
-  - Trả về file JSON ngay lập tức để Client hiển thị lại kết quả (kể cả khi chưa hoàn hảo).
-- **Refactor Codebase**:
-  - Loại bỏ logic thừa (Emoji shape cũ không cần thiết).
-  - Tối ưu hóa cấu trúc JSON trả về chuẩn Game Engine.
+- [x] Upload mask image.
+- [x] Multiple processing methods (auto, silhouette, dark_regions).
+- [x] Threshold configuration.
+- [x] Convert image to grid cells.
 
-## Giai đoạn 3.5: 11 Thuật toán Phân Phối Nâng Cao (Mới) 🚧
+#### **1.4 — Layer System**
 
-**Trọng tâm:** Cung cấp nhiều chiến thuật lấp đầy lưới (Fill Strategies) để Designer kiểm soát được "cảm giác" của màn chơi.
+- [x] Background reference layer.
+- [x] Grid data layer (editable).
+- [x] Visual separation of layers.
 
-1.  **SMART_DYNAMIC** (Hiện tại): Cân bằng động, tối ưu độ phủ.
-2.  **RANDOM_ADAPTIVE**: Ngẫu nhiên nhưng tự thích nghi với không gian.
-3.  **MAX_CLUMP / MIN_FRAGMENT**: Chiến thuật tham lam (Greedy) ưu tiên vùng lớn hoặc vùng nhỏ.
-4.  **BALANCED_AVG**: Chia đều độ dài một cách toán học.
-5.  **DIRECTIONAL SCAN**: Quét ngang (Horizontal) hoặc dọc (Vertical) để tạo luồng đọc map.
-6.  **GEOMETRIC**: Ưu tiên Viền (Perimeter), Tâm (Center) hoặc Đối xứng (Symmetrical).
-7.  **COMPACT_CLUSTER**: Lấp đầy theo cụm (Cluster) để tránh lỗ hổng nhỏ.
+#### **1.5 — JSON Editor (Grid Data)**
 
-**Mục tiêu chất lượng:**
+- [x] View grid as JSON (0/1 matrix).
+- [x] Parse & validate JSON input.
+- [x] Apply changes to canvas.
+- [x] Format & copy functionality.
 
-- Coverage > 90% cho các thuật toán Fill.
-- Hạn chế tối đa "ô chết" (1-2 ô rời rạc không thể đi vào).
+---
 
-## Giai đoạn 4: Trải nghiệm Nhà phát triển & Tiện ích (Sắp tới) 🔮
+### 🎯 **Phase 2 — Generator & Obstacles (Panel 2)**
 
-**Trọng tâm:** Làm cho công cụ nhanh hơn và an toàn hơn để thử nghiệm.
+**Status: ✅ Complete**
 
-- **Chế độ Mô phỏng (Simulation Mode)**:
-  - Tích hợp Mini Snake Engine ngay trên trình duyệt (Canvas/React).
-  - Nút "Play" để điều khiển rắn chạy thử theo path đã sinh.
-  - Kiểm tra va chạm và tính hợp lệ thực tế (Visual Debugging).
-- **Hệ thống Undo/Redo (Command Pattern)**:
-  - Hoàn tác các thao tác vẽ tường/xóa ô trên Grid.
-  - Hoàn tác các lần sinh level (quay lại kết quả trước đó).
-  - Phím tắt Ctrl+Z / Ctrl+Y.
-- **Template & Preset**: Lưu cấu hình tạo (vd: "Chế độ khó", "Mê cung dễ").
-- **Tạo hàng loạt (Batch Generation)**: Tạo nhiều biến thể cùng lúc.
+#### **2.1 — Generation Parameters**
 
-## Giai đoạn 5: Tích hợp Hệ sinh thái & Cloud (Đề xuất) ☁️
+- [x] Arrow count configuration.
+- [x] Min/Max arrow length.
+- [x] Min/Max bends (turns).
+- [x] Color palette management.
+- [x] Generate button with loading state.
 
-**Trọng tâm:** Mở rộng công cụ cho làm việc nhóm.
+#### **2.2 — Obstacle System**
 
-- **Xuất trực tiếp Game Engine**: Plugin Unity/Godot.
-- **Lưu trữ đám mây & Cộng tác**: Lưu level lên database, chia sẻ URL.
-- **Analytics**: Theo dõi chỉ số độ khó.
-- **AI Assistant**: Gợi ý đặt chướng ngại vật thông minh.
+- [x] Wall (static obstacle).
+- [x] Breakable wall (with counter).
+- [x] Hole (void cells).
+- [x] Tunnel pairs (teleport).
+- [x] Frozen snake.
+- [x] Locked snake (with key).
+
+#### **2.3 — Manual Arrow Drawing**
+
+- [x] Draw arrows directly on grid.
+- [x] Path validation (adjacency, length, bends).
+- [x] Color assignment from palette.
+- [x] Direction auto-detection.
+
+#### **2.4 — Level Output**
+
+- [x] JSON output for game engine.
+- [x] Download JSON file.
+- [x] Download level preview image.
+- [x] Level ID with Prefix/Suffix naming.
+- [x] Copy JSON to clipboard.
+
+#### **2.5 — Validation & Review**
+
+- [x] Solvability check.
+- [x] Validation logs display.
+- [x] Warning for stuck snakes.
+- [x] Coverage percentage.
+
+---
+
+### ⚙️ **Phase 3 — Server Refactor & Smart Algorithms**
+
+**Status: ✅ Complete**
+
+#### **3.1 — Custom Grid Input**
+
+- [x] Accept JSON grid (True/False array) from client.
+- [x] Parse boolean, integer (0/1), and string formats.
+- [x] Dynamic ROWS/COLS calculation.
+
+#### **3.2 — Obstacle Processing**
+
+- [x] Process obstacle list from client.
+- [x] Exclude obstacle cells from valid space.
+- [x] Tunnel pair linking.
+- [x] Support multi-cell obstacles.
+
+#### **3.3 — Fill Strategies (9 Algorithms)**
+
+- [x] **SMART_DYNAMIC**: Balanced, optimized coverage.
+- [x] **RANDOM_ADAPTIVE**: Random with space adaptation.
+- [x] **MAX_CLUMP**: Greedy, prioritize large regions.
+- [x] **MIN_FRAGMENT**: Prioritize small regions first.
+- [x] **EDGE_HUGGER**: Fill from grid edges.
+- [x] **LAYERED**: Layer-by-layer fill pattern.
+- [x] **SPIRAL_FILL**: Spiral inward pattern.
+- [x] **SYMMETRY**: Symmetrical snake placement.
+- [x] Strategy registry for easy extension.
+
+#### **3.4 — Smart Fill Gaps**
+
+- [x] Detect remaining empty cells.
+- [x] Simulation-based gap filling.
+- [x] Respect complexity constraints.
+- [x] Bonus fill toggle option.
+
+#### **3.5 — Logging & Quality Metrics**
+
+- [x] Coverage percentage calculation.
+- [x] Solvability validation.
+- [x] Attempt retry system (up to 20 retries).
+- [x] Large grid optimization (reduced retries).
+- [x] Detailed warning logs.
+
+#### **3.6 — Difficulty Calculator**
+
+- [x] Calculate level difficulty score.
+- [x] Consider snake complexity.
+- [x] Consider obstacle density.
+- [x] API endpoint for difficulty.
+
+---
+
+### 🎮 **Phase 4 — Developer Experience & Utilities**
+
+**Status: 🚧 In Progress**
+
+#### **4.1 — Simulation Mode**
+
+- [x] Mini Snake Engine in browser.
+- [x] Click-to-move snake interaction.
+- [x] Exit detection & animation.
+- [x] Collision detection.
+- [x] Zoom/pan in simulation.
+- [x] Autoplay button.
+- [x] Visual path highlighting.
+
+#### **4.2 — Undo/Redo System**
+
+- [x] History hook implementation.
+- [x] Keyboard shortcuts (Ctrl+Z / Ctrl+Y).
+
+#### **4.3 — Enhanced Arrow Drawing Toolkit**
+
+- [ ] Arrow selection (click to select).
+- [ ] Multi-select with Shift+click.
+- [ ] Bulk operations (delete, recolor, flip).
+- [ ] Edit existing arrow path, Extend/shorten arrow from head/tail (drag nodes).
+- [ ] Marquee selection (drag to create selection box).
+
+
+

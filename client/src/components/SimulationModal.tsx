@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { X, RotateCcw } from 'lucide-react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { X, RotateCcw, Play, Square } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useLanguage } from '../i18n'
+import { useNotification } from '../contexts/NotificationContext'
 
 // --- Types ---
 interface SimulationModalProps {
@@ -20,6 +21,7 @@ interface Snake {
     direction: 'up' | 'down' | 'left' | 'right'
     color: string
     exited: boolean
+    animationProgress?: number // 0-1 for smooth interpolation
 }
 
 interface GameState {
@@ -39,6 +41,11 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
     const animatingSnakesRef = useRef<Set<number>>(new Set()) // Track snakes currently animating
     const gameIdRef = useRef(0) // Track game generation to stop old animations
     const { t } = useLanguage()
+    const { addNotification } = useNotification()
+
+    // Autoplay State
+    const [isAutoPlaying, setIsAutoPlaying] = useState(false)
+    const autoPlayIntervalRef = useRef<number>(0)
 
     // Zoom & Pan State
     const [zoom, setZoom] = useState(1)
@@ -58,8 +65,18 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
         if (isOpen) {
             resetGame()
             setIsInitialized(false) // Trigger centering on next render/effect
+            setIsAutoPlaying(false) // Stop autoplay when modal opens
         }
     }, [isOpen, snakes])
+
+    // Cleanup autoplay on unmount
+    useEffect(() => {
+        return () => {
+            if (autoPlayIntervalRef.current) {
+                clearInterval(autoPlayIntervalRef.current)
+            }
+        }
+    }, [])
 
     // Center Grid Effect
     useEffect(() => {
@@ -77,11 +94,15 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
         }
     }, [isOpen, isInitialized, rows, cols, CELL_SIZE])
 
-    const resetGame = () => {
+    const resetGame = useCallback(() => {
         gameIdRef.current++ // Invalidate old animations
         console.log('Input snakes:', snakes)
         animatingSnakesRef.current.clear() // Clear animating state
-
+        setIsAutoPlaying(false) // Stop autoplay on reset
+        if (autoPlayIntervalRef.current) {
+            clearInterval(autoPlayIntervalRef.current)
+            autoPlayIntervalRef.current = 0
+        }
 
         const initialSnakes: Snake[] = snakes.map((s, index) => {
             // Path is tail to head
@@ -106,7 +127,7 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
             moveCount: 0,
             isComplete: false
         })
-    }
+    }, [snakes])
 
     // Get direction vector
     const getDirectionVector = (dir: 'up' | 'down' | 'left' | 'right'): { row: number, col: number } => {
@@ -204,8 +225,110 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
     // Wrapper for rendering (uses current state)
     const isSnakeMovable = (snake: Snake): boolean => isSnakeMovableCheck(snake)
 
+    // Get all movable snakes
+    const getMovableSnakes = useCallback((snakesArray: Snake[]): Snake[] => {
+        return snakesArray.filter(snake => {
+            if (snake.exited) return false
+            const visibleDots = snake.dots.filter(dot =>
+                dot.row >= 0 && dot.row < rows && dot.col >= 0 && dot.col < cols
+            )
+            return visibleDots.length > 0 && isSnakeMovableCheck(snake, snakesArray)
+        })
+    }, [rows, cols])
+
+    // Autoplay step - pick random movable snake and animate
+    const autoPlayStep = useCallback(() => {
+        const currentState = gameStateRef.current
+
+        // Check if complete
+        if (currentState.isComplete) {
+            setIsAutoPlaying(false)
+            if (autoPlayIntervalRef.current) {
+                clearInterval(autoPlayIntervalRef.current)
+                autoPlayIntervalRef.current = 0
+            }
+            return
+        }
+
+        // Check if all snakes exited (but isComplete not yet updated)
+        const allExited = currentState.snakes.every(s => s.exited)
+        if (allExited) {
+            setIsAutoPlaying(false)
+            if (autoPlayIntervalRef.current) {
+                clearInterval(autoPlayIntervalRef.current)
+                autoPlayIntervalRef.current = 0
+            }
+            return
+        }
+
+        // Get movable snakes (excludes those already animating via animatingSnakesRef check below)
+        const movableSnakes = getMovableSnakes(currentState.snakes)
+
+        if (movableSnakes.length === 0) {
+            // Check if any snakes are currently animating - if so, just wait
+            const anyAnimating = currentState.snakes.some(s =>
+                !s.exited && animatingSnakesRef.current.has(s.id)
+            )
+            if (anyAnimating) {
+                return // Still animating, wait for next interval
+            }
+
+            // Check if there are non-exited snakes that can't move = actually stuck
+            const nonExitedSnakes = currentState.snakes.filter(s => !s.exited)
+            if (nonExitedSnakes.length > 0) {
+                // Level is actually stuck
+                setIsAutoPlaying(false)
+                if (autoPlayIntervalRef.current) {
+                    clearInterval(autoPlayIntervalRef.current)
+                    autoPlayIntervalRef.current = 0
+                }
+                addNotification('error', t('levelStuck'))
+            }
+            return
+        }
+
+        // Pick random movable snake
+        const randomSnake = movableSnakes[Math.floor(Math.random() * movableSnakes.length)]
+
+        // Check if not already animating
+        if (!animatingSnakesRef.current.has(randomSnake.id)) {
+            setGameState(prev => ({ ...prev, moveCount: prev.moveCount + 1 }))
+            animateSnakeExit(randomSnake.id)
+        }
+    }, [getMovableSnakes, addNotification, t])
+
+    // Start autoplay
+    const startAutoPlay = useCallback(() => {
+        setIsAutoPlaying(true)
+        // Run autoplay step every 300ms
+        autoPlayIntervalRef.current = window.setInterval(() => {
+            autoPlayStep()
+        }, 300)
+    }, [autoPlayStep])
+
+    // Stop autoplay
+    const stopAutoPlay = useCallback(() => {
+        setIsAutoPlaying(false)
+        if (autoPlayIntervalRef.current) {
+            clearInterval(autoPlayIntervalRef.current)
+            autoPlayIntervalRef.current = 0
+        }
+    }, [])
+
+    // Toggle autoplay
+    const toggleAutoPlay = useCallback(() => {
+        if (isAutoPlaying) {
+            stopAutoPlay()
+        } else {
+            startAutoPlay()
+        }
+    }, [isAutoPlaying, startAutoPlay, stopAutoPlay])
+
     // Canvas click handler
-    const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+        // Disable clicks during autoplay
+        if (isAutoPlaying) return
+
         const canvas = canvasRef.current
         if (!canvas) return
 
@@ -269,9 +392,8 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
         if (!foundSnake) {
             console.log('No snake found at position', row, col, '- Checked against', gameState.snakes.length, 'snakes')
         }
-    }
+    }, [isAutoPlaying, pan, zoom, cols, rows, gameState.snakes])
 
-    // Animate snake continuously until it exits or is blocked
     // Animate snake continuously until it exits or is blocked
     const animateSnakeExit = (snakeId: number) => {
         const startGeneration = gameIdRef.current
@@ -281,74 +403,109 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
             console.log('[ANIM] Snake already animating, skipping:', snakeId)
             return
         }
+
+        // First check if snake is actually movable BEFORE starting animation
+        const initialState = gameStateRef.current
+        const initialSnake = initialState.snakes.find(s => s.id === snakeId)
+        if (!initialSnake || initialSnake.exited) {
+            return
+        }
+
+        // Check if blocked at start
+        const visibleDots = initialSnake.dots.filter(dot =>
+            dot.row >= 0 && dot.row < rows && dot.col >= 0 && dot.col < cols
+        )
+        if (visibleDots.length > 0 && !isSnakeMovableCheck(initialSnake, initialState.snakes)) {
+            console.log('[ANIM] Snake is blocked, not starting animation')
+            return
+        }
+
         animatingSnakesRef.current.add(snakeId)
 
-        const MOVE_INTERVAL = 50 // ms between moves
+        const MOVE_DURATION = 50 // ms for one cell movement
+        let animationStartTime = Date.now()
+        let shouldContinue = true
 
         console.log('[ANIM] Starting animation for snake:', snakeId)
 
-        const moveLoop = () => {
-            // Stop if game was reset
-            if (gameIdRef.current !== startGeneration) return
-
-            // Use Ref to access latest state without being inside setGameState callback
-            const currentState = gameStateRef.current
-            const snakeIndex = currentState.snakes.findIndex(s => s.id === snakeId)
-
-            if (snakeIndex === -1) {
-                console.log('[ANIM] Snake not found, stopping')
+        const animationLoop = () => {
+            // Stop conditions
+            if (gameIdRef.current !== startGeneration) {
+                animatingSnakesRef.current.delete(snakeId)
+                return
+            }
+            if (!shouldContinue) {
                 animatingSnakesRef.current.delete(snakeId)
                 return
             }
 
-            const snake = currentState.snakes[snakeIndex]
+            const elapsed = Date.now() - animationStartTime
+            const progress = Math.min(elapsed / MOVE_DURATION, 1)
 
-            // Already fully exited - stop animation
-            if (snake.exited) {
-                console.log('[ANIM] Snake already exited, stopping')
-                animatingSnakesRef.current.delete(snakeId)
-                return
-            }
-
-            // Get visible dots
-            const visibleDots = snake.dots.filter(dot =>
-                dot.row >= 0 && dot.row < rows && dot.col >= 0 && dot.col < cols
-            )
-
-            // Check if movable (only when still has visible dots in grid)
-            if (visibleDots.length > 0 && !isSnakeMovableCheck(snake, currentState.snakes)) {
-                console.log('[ANIM] Snake blocked, stopping animation')
-                animatingSnakesRef.current.delete(snakeId)
-                return
-            }
-
-            // Move snake one step
-            const head = snake.dots[snake.dots.length - 1]
-            const dir = getDirectionVector(snake.direction)
-            const newHead = { row: head.row + dir.row, col: head.col + dir.col }
-
-            const newDots = [...snake.dots, newHead]
-            newDots.shift()
-
-            // Check if TAIL is far enough outside canvas
-            const MARGIN_CELLS = 15
-            const newTail = newDots[0]
-            const tailTooFar = newTail.row < -MARGIN_CELLS || newTail.row >= rows + MARGIN_CELLS ||
-                newTail.col < -MARGIN_CELLS || newTail.col >= cols + MARGIN_CELLS
-
-            // Mark as exited when tail is far enough outside
-            const shouldExit = tailTooFar
-
-            // Update State
+            // Single atomic state update
             setGameState(prev => {
-                const newSnakes = [...prev.snakes]
-                newSnakes[snakeIndex] = {
-                    ...snake,
-                    dots: newDots,
-                    exited: shouldExit
+                const snakeIndex = prev.snakes.findIndex(s => s.id === snakeId)
+                if (snakeIndex === -1) {
+                    shouldContinue = false
+                    return prev
                 }
-                const allExited = newSnakes.every(s => s.exited)
 
+                const snake = prev.snakes[snakeIndex]
+                if (snake.exited) {
+                    shouldContinue = false
+                    return prev
+                }
+
+                const newSnakes = [...prev.snakes]
+
+                if (progress < 1) {
+                    // Still animating - just update progress
+                    newSnakes[snakeIndex] = {
+                        ...snake,
+                        animationProgress: progress
+                    }
+                } else {
+                    // Animation complete - move to next cell
+                    const head = snake.dots[snake.dots.length - 1]
+                    const dirVec = getDirectionVector(snake.direction)
+                    const newHead = { row: head.row + dirVec.row, col: head.col + dirVec.col }
+
+                    const newDots = [...snake.dots, newHead]
+                    newDots.shift()
+
+                    // Check if TAIL is far enough outside canvas
+                    const MARGIN_CELLS = 15
+                    const newTail = newDots[0]
+                    const tailTooFar = newTail.row < -MARGIN_CELLS || newTail.row >= rows + MARGIN_CELLS ||
+                        newTail.col < -MARGIN_CELLS || newTail.col >= cols + MARGIN_CELLS
+
+                    const exited = tailTooFar
+
+                    newSnakes[snakeIndex] = {
+                        ...snake,
+                        dots: newDots,
+                        exited: exited,
+                        animationProgress: 0 // Reset for next move
+                    }
+
+                    if (exited) {
+                        shouldContinue = false
+                    } else {
+                        // Check if next move is blocked
+                        const newVisibleDots = newDots.filter(dot =>
+                            dot.row >= 0 && dot.row < rows && dot.col >= 0 && dot.col < cols
+                        )
+                        const tempSnake = { ...snake, dots: newDots }
+                        if (newVisibleDots.length > 0 && !isSnakeMovableCheck(tempSnake, newSnakes)) {
+                            shouldContinue = false
+                        }
+                    }
+
+                    // Reset timer for next move
+                    animationStartTime = Date.now()
+                }
+
+                const allExited = newSnakes.every(s => s.exited)
                 return {
                     snakes: newSnakes,
                     moveCount: prev.moveCount,
@@ -356,24 +513,20 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
                 }
             })
 
-
-
-
-            // Schedule next move if NOT exiting
-            if (!shouldExit) {
-                setTimeout(moveLoop, MOVE_INTERVAL)
+            // Continue animation if not stopped
+            if (shouldContinue) {
+                requestAnimationFrame(animationLoop)
             } else {
-                console.log('[ANIM] Animation complete, snake exited')
                 animatingSnakesRef.current.delete(snakeId)
             }
         }
 
         // Start animation
-        moveLoop()
+        requestAnimationFrame(animationLoop)
     }
 
-    // Canvas hover handler (throttled to prevent flicker)
-    const handleCanvasMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Canvas hover handler (throttled to prevent flicker) - memoized
+    const handleCanvasMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current
         if (!canvas) return
 
@@ -418,22 +571,21 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
             }
         }
         setHoveredSnake(null)
-        setHoveredSnake(null)
-    }
+    }, [pan, zoom, cols, rows, gameState.snakes])
 
-    const handleMouseDown = (e: React.MouseEvent) => {
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
         if (e.button === 1 || (e.button === 0 && e.shiftKey)) {  // Middle click or Shift+Click
             setIsDragging(true)
             setLastPos({ x: e.clientX, y: e.clientY })
             e.preventDefault()
         }
-    }
+    }, [])
 
-    const handleMouseUp = () => {
+    const handleMouseUp = useCallback(() => {
         setIsDragging(false)
-    }
+    }, [])
 
-    const handleMouseMoveCombined = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const handleMouseMoveCombined = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
         if (isDragging) {
             const dx = e.clientX - lastPos.x
             const dy = e.clientY - lastPos.y
@@ -442,9 +594,9 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
         } else {
             handleCanvasMove(e)
         }
-    }
+    }, [isDragging, lastPos, handleCanvasMove])
 
-    const handleWheel = (e: React.WheelEvent) => {
+    const handleWheel = useCallback((e: React.WheelEvent) => {
         const canvas = canvasRef.current
         if (!canvas) return
 
@@ -468,7 +620,7 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
         setZoom(newZoom)
         setPan({ x: newPanX, y: newPanY })
-    }
+    }, [pan, zoom])
 
     // Render Canvas
     useEffect(() => {
@@ -579,8 +731,38 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
             const isHovered = hoveredSnake === snake.id
             const isMovable = visibleDots.length > 0 ? isSnakeMovable(snake) : false
 
+            // Get animation progress (0-1) for smooth interpolation
+            const progress = snake.animationProgress || 0
+            const dir = getDirectionVector(snake.direction)
+
+            // For smooth animation that preserves corners:
+            // - Head extends in direction
+            // - Tail shrinks (interpolates toward next dot)
+            // - Middle body segments stay at their grid positions
+            const interpolatedDots = snake.dots.map((dot, index) => {
+                // Only interpolate if animating (0 < progress < 1)
+                if (progress > 0 && progress < 1) {
+                    if (index === snake.dots.length - 1) {
+                        // HEAD: extends in direction
+                        return {
+                            row: dot.row + dir.row * progress,
+                            col: dot.col + dir.col * progress
+                        }
+                    } else if (index === 0) {
+                        // TAIL: shrinks toward the next segment
+                        const nextDot = snake.dots[1]
+                        return {
+                            row: dot.row + (nextDot.row - dot.row) * progress,
+                            col: dot.col + (nextDot.col - dot.col) * progress
+                        }
+                    }
+                    // BODY: stays at exact grid position (preserves corners)
+                }
+                return dot
+            })
+
             // Draw path line - ALL dots including outside grid
-            if (snake.dots.length > 1) {
+            if (interpolatedDots.length > 1) {
                 ctx.beginPath()
                 ctx.strokeStyle = snake.color
                 ctx.lineWidth = 4
@@ -593,11 +775,11 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
                     ctx.shadowBlur = 10
                 }
 
-                const start = snake.dots[0]
+                const start = interpolatedDots[0]
                 ctx.moveTo(start.col * CELL_SIZE + CELL_SIZE / 2, start.row * CELL_SIZE + CELL_SIZE / 2)
 
-                for (let i = 1; i < snake.dots.length; i++) {
-                    const dot = snake.dots[i]
+                for (let i = 1; i < interpolatedDots.length; i++) {
+                    const dot = interpolatedDots[i]
                     ctx.lineTo(dot.col * CELL_SIZE + CELL_SIZE / 2, dot.row * CELL_SIZE + CELL_SIZE / 2)
                 }
                 ctx.stroke()
@@ -605,8 +787,8 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
                 ctx.shadowBlur = 0
             }
 
-            // Draw arrowhead at actual head (possibly outside grid)
-            const head = snake.dots[snake.dots.length - 1]
+            // Draw arrowhead at interpolated head position
+            const head = interpolatedDots[interpolatedDots.length - 1]
             const headX = head.col * CELL_SIZE + CELL_SIZE / 2
             const headY = head.row * CELL_SIZE + CELL_SIZE / 2
 
@@ -715,8 +897,19 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
                                 <div className="h-6 w-px bg-gray-700 mx-2" />
 
-                                <button onClick={resetGame} className="p-2 hover:bg-gray-700 rounded text-yellow-400 transition-colors" title="Reset">
+                                <button onClick={resetGame} className="p-2 hover:bg-gray-700 rounded text-yellow-400 transition-colors" title={t('reset')}>
                                     <RotateCcw size={18} />
+                                </button>
+
+                                <button
+                                    onClick={toggleAutoPlay}
+                                    className={`p-2 rounded transition-colors ${isAutoPlaying
+                                        ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                                        : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                        }`}
+                                    title={isAutoPlaying ? t('stopAutoPlay') : t('autoPlay')}
+                                >
+                                    {isAutoPlaying ? <Square size={18} /> : <Play size={18} />}
                                 </button>
 
                                 <button onClick={onClose} className="p-2 hover:bg-red-500/20 rounded text-gray-400 hover:text-red-400 transition-colors">
@@ -770,8 +963,17 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
                             {/* Instructions */}
                             <div className="absolute bottom-6 left-6 bg-gray-800/80 border border-gray-700 rounded px-3 py-2 text-xs text-gray-300">
-                                <div>💡 {t('tapToMove')}</div>
-                                <div className="mt-1">{t('movableGlow')}</div>
+                                {isAutoPlaying ? (
+                                    <div className="flex items-center gap-2">
+                                        <span className="animate-pulse">🤖</span>
+                                        <span>{t('autoPlayActive')}</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div>💡 {t('tapToMove')}</div>
+                                        <div className="mt-1">{t('movableGlow')}</div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </motion.div>
