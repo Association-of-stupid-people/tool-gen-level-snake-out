@@ -315,7 +315,7 @@ function App() {
   }
 
   // Clear arrow selection
-  const handleClearSelection = () => {
+  const _handleClearSelection = () => {
     setSelectedArrows(new Set())
   }
 

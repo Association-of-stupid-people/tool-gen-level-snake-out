@@ -131,7 +131,7 @@ export function GeneratorPanel({
     // Path editing state
     const [editingArrowId, setEditingArrowId] = useState<number | null>(null)
     const [editingEnd, setEditingEnd] = useState<'head' | 'tail' | null>(null)
-    const [isDraggingNode, setIsDraggingNode] = useState(false)
+    const [_isDraggingNode, setIsDraggingNode] = useState(false)
     const [editingPath, setEditingPath] = useState<{ row: number, col: number }[] | null>(null)
 
     // Obstacle drag state for wall/wallbreak drawing
@@ -275,7 +275,7 @@ export function GeneratorPanel({
     }
 
     // Handle node handle click for path editing
-    const handleNodeHandleClick = (arrowId: number, end: 'head' | 'tail', row: number, col: number, e: React.MouseEvent) => {
+    const handleNodeHandleClick = (arrowId: number, end: 'head' | 'tail', _row: number, _col: number, _e: React.MouseEvent) => {
         if (selectedArrows.size !== 1) return
 
         const arrow = generatorOverlays.arrows.find(a => a.id === arrowId)
@@ -557,7 +557,7 @@ export function GeneratorPanel({
         }))
     }
 
-    const handleRightMouseUp = (row: number, col: number, e: React.MouseEvent) => {
+    const handleRightMouseUp = (_row: number, _col: number, e: React.MouseEvent) => {
         if (!rightClickStart || !setSelectedArrows) {
             setRightClickStart(null)
             return
