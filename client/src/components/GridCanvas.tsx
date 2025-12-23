@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
 import { useNotification } from '../contexts/NotificationContext'
 
@@ -613,11 +613,11 @@ export function GridCanvas({
                     const headCell = selectedArrow.path[0]
                     // Tail node (end cell)
                     const tailCell = { row: selectedArrow.row, col: selectedArrow.col }
-                    
+
                     // Calculate handle positions
                     let headHandleCell = headCell
                     let tailHandleCell = tailCell
-                    
+
                     // Head handle: cell đầu + 1 theo direction ngược lại từ segment đầu (từ path[1] đến path[0])
                     if (selectedArrow.path.length >= 2) {
                         const firstCell = selectedArrow.path[0]
@@ -637,7 +637,7 @@ export function GridCanvas({
                         else if (dir === 'left') headHandleCell = { row: headCell.row, col: headCell.col - 1 }
                         else if (dir === 'right') headHandleCell = { row: headCell.row, col: headCell.col + 1 }
                     }
-                    
+
                     // Tail handle: cell cuối + 1 theo direction từ segment cuối (từ path[path.length-2] đến path[path.length-1])
                     if (selectedArrow.path.length >= 2) {
                         const prevToLast = selectedArrow.path[selectedArrow.path.length - 2]
@@ -657,7 +657,7 @@ export function GridCanvas({
                         else if (dir === 'left') tailHandleCell = { row: tailCell.row, col: tailCell.col - 1 }
                         else if (dir === 'right') tailHandleCell = { row: tailCell.row, col: tailCell.col + 1 }
                     }
-                    
+
                     // Position handles at center of cells
                     const headX = headHandleCell.col * CELL_SIZE + CELL_SIZE / 2
                     const headY = headHandleCell.row * CELL_SIZE + CELL_SIZE / 2
@@ -698,7 +698,7 @@ export function GridCanvas({
 
                     // Head handle
                     drawHandle(headX, headY, isEditingHead)
-                    
+
                     // Tail handle
                     drawHandle(tailX, tailY, isEditingTail)
                 }
@@ -792,7 +792,7 @@ export function GridCanvas({
                 marqueeSelection.arrowCells.forEach(cell => {
                     const cellX = cell.col * CELL_SIZE
                     const cellY = cell.row * CELL_SIZE
-                    
+
                     // Draw semi-transparent fill
                     ctx.fillStyle = 'rgba(59, 130, 246, 0.3)' // Blue tint
                     ctx.fillRect(cellX, cellY, CELL_SIZE, CELL_SIZE)
@@ -877,11 +877,11 @@ export function GridCanvas({
             if (selectedArrow && selectedArrow.path && selectedArrow.path.length > 0) {
                 const headCell = selectedArrow.path[0]
                 const tailCell = { row: selectedArrow.row, col: selectedArrow.col }
-                
+
                 // Calculate handle positions: place at center of next cell in path direction
                 let headHandleCell = headCell
                 let tailHandleCell = tailCell
-                
+
                 // Head handle: cell đầu + 1 theo direction ngược lại từ segment đầu (từ path[1] đến path[0])
                 if (selectedArrow.path.length >= 2) {
                     const firstCell = selectedArrow.path[0]
@@ -901,7 +901,7 @@ export function GridCanvas({
                     else if (dir === 'left') headHandleCell = { row: headCell.row, col: headCell.col - 1 }
                     else if (dir === 'right') headHandleCell = { row: headCell.row, col: headCell.col + 1 }
                 }
-                
+
                 // Tail handle: cell cuối + 1 theo direction từ segment cuối (từ path[path.length-2] đến path[path.length-1])
                 if (selectedArrow.path.length >= 2) {
                     const prevToLast = selectedArrow.path[selectedArrow.path.length - 2]
@@ -921,21 +921,21 @@ export function GridCanvas({
                     else if (dir === 'left') tailHandleCell = { row: tailCell.row, col: tailCell.col - 1 }
                     else if (dir === 'right') tailHandleCell = { row: tailCell.row, col: tailCell.col + 1 }
                 }
-                
+
                 // Calculate handle positions at center of cells
                 const handleRadius = 7
                 const headHandleX = headHandleCell.col * CELL_SIZE + CELL_SIZE / 2
                 const headHandleY = headHandleCell.row * CELL_SIZE + CELL_SIZE / 2
                 const tailHandleX = tailHandleCell.col * CELL_SIZE + CELL_SIZE / 2
                 const tailHandleY = tailHandleCell.row * CELL_SIZE + CELL_SIZE / 2
-                
+
                 // Get mouse position in canvas coordinates
                 const canvas = canvasRef.current
                 if (canvas) {
                     const rect = canvas.getBoundingClientRect()
                     const worldX = (e.clientX - rect.left - pan.x) / zoom
                     const worldY = (e.clientY - rect.top - pan.y) / zoom
-                    
+
                     // Check if clicked on head handle (within handle radius) - prioritize handle clicks
                     const distToHead = Math.sqrt(Math.pow(worldX - headHandleX, 2) + Math.pow(worldY - headHandleY, 2))
                     if (distToHead <= handleRadius + 5) { // +5 for easier clicking
@@ -945,7 +945,7 @@ export function GridCanvas({
                         onNodeHandleClick(selectedArrow.id, 'head', headCell.row, headCell.col, e)
                         return
                     }
-                    
+
                     // Check if clicked on tail handle (within handle radius) - prioritize handle clicks
                     const distToTail = Math.sqrt(Math.pow(worldX - tailHandleX, 2) + Math.pow(worldY - tailHandleY, 2))
                     if (distToTail <= handleRadius + 5) { // +5 for easier clicking
@@ -971,7 +971,7 @@ export function GridCanvas({
                 if (a.path?.some(p => p.row === coords.row && p.col === coords.col)) return true
                 return false
             })
-            
+
             // If clicking on arrow, allow selection (don't pan)
             if (clickedArrow) {
                 setIsDrawing(true)
