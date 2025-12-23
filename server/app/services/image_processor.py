@@ -12,23 +12,39 @@ def process_image_to_grid(image_data: bytes, grid_width: int, grid_height: int) 
     """
     Process an image and convert it to a grid mask using multiple strategies.
     Prioritizes finding large solid regions (silhouettes).
+    Properly handles transparent PNG images.
     """
     try:
         print(f"[ImageProcessor] Processing image to {grid_width}x{grid_height} grid")
         
-        # Load image from bytes
+        # Load image from bytes, preserving alpha channel if present
         nparr = np.frombuffer(image_data, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
         
         if img is None:
             return {"error": "Failed to decode image"}
         
         original_shape = img.shape
-        print(f"[ImageProcessor] Original image: {original_shape[1]}x{original_shape[0]}")
+        print(f"[ImageProcessor] Original image: {original_shape[1]}x{original_shape[0]}, channels: {img.shape[2] if len(img.shape) > 2 else 1}")
+        
+        # Check if image has alpha channel (4 channels = BGRA)
+        has_alpha = len(img.shape) == 3 and img.shape[2] == 4
+        
+        if has_alpha:
+            print("[ImageProcessor] Detected alpha channel, using alpha-based segmentation")
+            result = _alpha_segmentation(img, grid_width, grid_height)
+            if result and result['stats']['fill_ratio'] > 5:  # At least 5% filled
+                print(f"[ImageProcessor] Alpha segmentation: {result['stats']['fill_ratio']}% filled")
+                return result
+            print("[ImageProcessor] Alpha segmentation gave poor results, falling back to color-based")
+            # Convert to BGR for fallback
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        elif len(img.shape) == 2:
+            # Grayscale image - convert to BGR
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         
         # Resize to grid dimensions (preserving aspect ratio)
         img_resized = _resize_contain(img, grid_width, grid_height)
-        # img_resized = cv2.resize(img, (grid_width, grid_height), interpolation=cv2.INTER_AREA)
         gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
         
         # Strategy 1: K-means clustering (2 clusters for foreground/background)
@@ -76,6 +92,68 @@ def process_image_to_grid(image_data: bytes, grid_width: int, grid_height: int) 
         import traceback
         traceback.print_exc()
         return {"error": str(e)}
+
+
+def _alpha_segmentation(img_bgra, grid_width, grid_height):
+    """
+    Use alpha channel to segment foreground from background.
+    Pixels with alpha > threshold are considered foreground.
+    """
+    try:
+        # Extract alpha channel
+        alpha = img_bgra[:, :, 3]
+        bgr = img_bgra[:, :, :3]
+        
+        # Resize both alpha and BGR to grid dimensions
+        h, w = alpha.shape
+        image_aspect = w / h
+        target_aspect = grid_width / grid_height
+        
+        if image_aspect > target_aspect:
+            # Fit to width
+            new_w = grid_width
+            new_h = int(grid_width / image_aspect)
+        else:
+            # Fit to height
+            new_h = grid_height
+            new_w = int(grid_height * image_aspect)
+        
+        # Resize alpha
+        alpha_resized = cv2.resize(alpha, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        
+        # Create canvas with zeros (transparent = background = False)
+        canvas = np.zeros((grid_height, grid_width), dtype=np.uint8)
+        
+        # Calculate offset to center
+        y_offset = (grid_height - new_h) // 2
+        x_offset = (grid_width - new_w) // 2
+        
+        # Paste resized alpha
+        canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = alpha_resized
+        
+        # Threshold: alpha > 128 = foreground (opaque)
+        mask = (canvas > 128).astype(np.uint8) * 255
+        
+        # Clean up with morphology
+        kernel = np.ones((2, 2), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        
+        grid = (mask > 0).tolist()
+        cell_count = int(np.sum(mask > 0))
+        fill_ratio = cell_count / (grid_width * grid_height)
+        
+        return {
+            "grid": grid,
+            "stats": {
+                "cell_count": cell_count,
+                "fill_ratio": round(fill_ratio * 100, 1),
+                "method": "alpha_channel"
+            }
+        }
+    except Exception as e:
+        print(f"[ImageProcessor] Alpha segmentation failed: {e}")
+        return None
 
 
 def _kmeans_segmentation(img, grid_width, grid_height):

@@ -834,6 +834,30 @@ export function RightSidebar({
                                     <span className="text-xs">{t('clickOrDropImage')}</span>
                                 </div>
                             </div>
+                            {/* Import from Clipboard button */}
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        const clipboardItems = await navigator.clipboard.read()
+                                        for (const item of clipboardItems) {
+                                            const imageType = item.types.find(type => type.startsWith('image/'))
+                                            if (imageType) {
+                                                const blob = await item.getType(imageType)
+                                                const file = new File([blob], 'clipboard-image.png', { type: imageType })
+                                                onImageUpload(file)
+                                                return
+                                            }
+                                        }
+                                        alert('No image found in clipboard')
+                                    } catch (err) {
+                                        console.error('Clipboard read failed:', err)
+                                        alert('Failed to read clipboard. Make sure you have copied an image.')
+                                    }
+                                }}
+                                className="w-full mt-2 py-2 bg-gray-600/50 text-gray-300 border border-gray-500/50 rounded-lg hover:bg-purple-500/20 hover:border-purple-500/50 hover:text-purple-400 transition-colors text-xs font-medium flex items-center justify-center gap-2"
+                            >
+                                <ClipboardPaste size={14} /> {t('importFromClipboard') || 'Paste from Clipboard'}
+                            </button>
                         </div>
 
                         {/* Actions */}
