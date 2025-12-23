@@ -596,6 +596,24 @@ export function RightSidebar({
                                         </div>
                                     </div>
 
+                                    {/* Extra details from new calculator */}
+                                    {difficultyData.details && (
+                                        <div className="grid grid-cols-3 gap-1 pt-2 border-t border-gray-700/50 text-center">
+                                            <div>
+                                                <div className="text-[9px] text-gray-600">Grid</div>
+                                                <div className="text-[10px] text-gray-400">{difficultyData.details.grid_bounds}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[9px] text-gray-600">Depth</div>
+                                                <div className="text-[10px] text-gray-400">{difficultyData.details.solve_depth}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-[9px] text-gray-600">Cells</div>
+                                                <div className="text-[10px] text-gray-400">{difficultyData.details.occupied_cells}</div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="text-[10px] text-gray-500 italic text-center mt-1">
                                         {t('scoreFormula')}
                                     </div>

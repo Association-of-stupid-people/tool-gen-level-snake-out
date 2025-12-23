@@ -35,6 +35,8 @@ def process_image_to_grid(image_data: bytes, grid_width: int, grid_height: int) 
             result = _alpha_segmentation(img, grid_width, grid_height)
             if result and result['stats']['fill_ratio'] > 5:  # At least 5% filled
                 print(f"[ImageProcessor] Alpha segmentation: {result['stats']['fill_ratio']}% filled")
+                # Ensure mask is centered before returning
+                result = _center_mask(result, grid_width, grid_height)
                 return result
             print("[ImageProcessor] Alpha segmentation gave poor results, falling back to color-based")
             # Convert to BGR for fallback
@@ -84,6 +86,9 @@ def process_image_to_grid(image_data: bytes, grid_width: int, grid_height: int) 
             # Fallback to simple threshold
             best_result = _simple_threshold(gray, grid_width, grid_height)
         
+        # Post-process: center the mask based on bounding box
+        best_result = _center_mask(best_result, grid_width, grid_height)
+        
         print(f"[ImageProcessor] Selected: {best_result['stats']['method']} with {best_result['stats']['fill_ratio']}% fill")
         return best_result
         
@@ -92,6 +97,83 @@ def process_image_to_grid(image_data: bytes, grid_width: int, grid_height: int) 
         import traceback
         traceback.print_exc()
         return {"error": str(e)}
+
+
+def _center_mask(result, grid_width, grid_height):
+    """
+    Center the foreground content within the grid based on bounding box.
+    This corrects any offset from the original image positioning.
+    """
+    if result is None or 'grid' not in result:
+        return result
+    
+    try:
+        # Convert grid to numpy array
+        grid = np.array(result['grid'], dtype=np.uint8)
+        
+        # Find bounding box of foreground (True/1 cells)
+        rows_with_fg = np.any(grid, axis=1)
+        cols_with_fg = np.any(grid, axis=0)
+        
+        if not np.any(rows_with_fg) or not np.any(cols_with_fg):
+            # No foreground - return as-is
+            return result
+        
+        # Get bounding box
+        min_row = np.argmax(rows_with_fg)
+        max_row = len(rows_with_fg) - 1 - np.argmax(rows_with_fg[::-1])
+        min_col = np.argmax(cols_with_fg)
+        max_col = len(cols_with_fg) - 1 - np.argmax(cols_with_fg[::-1])
+        
+        fg_height = max_row - min_row + 1
+        fg_width = max_col - min_col + 1
+        
+        # Calculate current center and target center
+        curr_center_row = (min_row + max_row) / 2
+        curr_center_col = (min_col + max_col) / 2
+        target_center_row = (grid_height - 1) / 2
+        target_center_col = (grid_width - 1) / 2
+        
+        # Calculate shift needed
+        shift_row = int(round(target_center_row - curr_center_row))
+        shift_col = int(round(target_center_col - curr_center_col))
+        
+        # Only skip if already perfectly centered
+        if shift_row == 0 and shift_col == 0:
+            return result
+        
+        print(f"[ImageProcessor] Centering mask: shift ({shift_row}, {shift_col})")
+        
+        # Create new centered grid
+        new_grid = np.zeros((grid_height, grid_width), dtype=np.uint8)
+        
+        # Calculate source and destination ranges with boundary checks
+        src_row_start = max(0, -shift_row)
+        src_row_end = min(grid_height, grid_height - shift_row)
+        src_col_start = max(0, -shift_col)
+        src_col_end = min(grid_width, grid_width - shift_col)
+        
+        dst_row_start = max(0, shift_row)
+        dst_row_end = min(grid_height, grid_height + shift_row)
+        dst_col_start = max(0, shift_col)
+        dst_col_end = min(grid_width, grid_width + shift_col)
+        
+        # Copy with shift
+        height = min(src_row_end - src_row_start, dst_row_end - dst_row_start)
+        width = min(src_col_end - src_col_start, dst_col_end - dst_col_start)
+        
+        new_grid[dst_row_start:dst_row_start+height, dst_col_start:dst_col_start+width] = \
+            grid[src_row_start:src_row_start+height, src_col_start:src_col_start+width]
+        
+        # Update result
+        result['grid'] = (new_grid > 0).tolist()
+        result['stats']['centered'] = True
+        
+        return result
+        
+    except Exception as e:
+        print(f"[ImageProcessor] Center correction failed: {e}")
+        return result
 
 
 def _alpha_segmentation(img_bgra, grid_width, grid_height):

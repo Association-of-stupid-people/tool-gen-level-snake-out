@@ -1,41 +1,32 @@
-import math
+"""
+Difficulty Calculator Service
+Calculates difficulty score for snake levels based on:
+- S (Snake Load): 30 pts max
+- F (Freedom): 40 pts max  
+- O (Obstacles): 30 pts max
+"""
 
-# Constants for Global Normalization (Estimated Caps)
-# These act as the 'max' denominator for counts that don't fallback to local max
-MAX_POSSIBLE_SNAKES = 100
-MAX_OBSTACLE_WALLS = 500 # Depends on grid, but this is a soft cap for norm
-MAX_HOLES = 20
-MAX_TUNNEL_PAIRS = 20
-MAX_WALL_BREAKS = 20
-MAX_ICED_LOCKED = 20
-MAX_KEY_LOCKED = 20
-MAX_LOCKED_KEYS = 20
+from app.services.validator import validate_level
 
 def normalize(val, min_val, max_val):
+    """Normalize value to 0-1 range"""
     if max_val <= min_val:
-        return 0 if val <= min_val else 1 # Avoid division by zero
-    
-    # Clamp value
+        return 0 if val <= min_val else 1
     clamped = max(min_val, min(val, max_val))
     return (clamped - min_val) / (max_val - min_val)
 
+
 def get_snake_corners(path):
-    # Path is list of dict/tuple: [{r,c}, ...] or [(r,c), ...]
+    """Count number of 90-degree turns in snake path"""
     if len(path) < 3:
         return 0
     
     corners = 0
-    # Iterate from 1 to len-2
     for i in range(1, len(path) - 1):
-        # Check if p[i-1], p[i], p[i+1] form a 90 degree turn
-        # Vector A: i -> i-1
-        # Vector B: i -> i+1
-        # Actually easier: check if row changes then col changes
         p_prev = path[i-1]
         p_curr = path[i]
         p_next = path[i+1]
         
-        # Accessor helper
         def get_rc(p):
             if isinstance(p, dict): return p.get('row'), p.get('col')
             return p[0], p[1]
@@ -44,9 +35,7 @@ def get_snake_corners(path):
         r1, c1 = get_rc(p_curr)
         r2, c2 = get_rc(p_next)
         
-        # Direction 1
         dr1, dc1 = r1-r0, c1-c0
-        # Direction 2
         dr2, dc2 = r2-r1, c2-c1
         
         if (dr1, dc1) != (dr2, dc2):
@@ -54,55 +43,76 @@ def get_snake_corners(path):
             
     return corners
 
-def check_movable(snake, all_snakes, obstacles_map, rows, cols):
-    # Snake path: List of points. Head is usually at one end.
-    # In this project: 
-    # Frontend sends path: [Tail ... Head]. (Confirmed in earlier logs)
-    # Validator/Backend usually expects [Tail...Head] too.
+
+def calculate_bounding_box(snakes, obstacles):
+    """
+    Calculate grid bounds from actual data (bounding box).
+    Returns (rows, cols) based on min/max positions.
+    """
+    all_positions = []
     
+    def get_rc(p):
+        if isinstance(p, dict): return p.get('row', 0), p.get('col', 0)
+        return p[0], p[1]
+    
+    # From snakes
+    for s in snakes:
+        path = s.get('path', [])
+        for p in path:
+            r, c = get_rc(p)
+            all_positions.append((r, c))
+    
+    # From obstacles
+    for obs in obstacles:
+        cells = obs.get('cells', [])
+        if cells:
+            for cell in cells:
+                r, c = get_rc(cell)
+                all_positions.append((r, c))
+        else:
+            r = obs.get('row', 0)
+            c = obs.get('col', 0)
+            all_positions.append((r, c))
+    
+    if not all_positions:
+        return 1, 1
+    
+    min_r = min(p[0] for p in all_positions)
+    max_r = max(p[0] for p in all_positions)
+    min_c = min(p[1] for p in all_positions)
+    max_c = max(p[1] for p in all_positions)
+    
+    return (max_r - min_r + 1), (max_c - min_c + 1)
+
+
+def check_movable(snake, all_snakes, obstacles_map, rows, cols):
+    """Check if snake head can move in any direction"""
     path = snake.get('path', [])
     if not path: return False
     
-    # helper
     def get_rc(p):
         if isinstance(p, dict): return p.get('row'), p.get('col')
         return p[0], p[1]
         
-    head_r, head_c = get_rc(path[-1]) # Last item is Head
+    head_r, head_c = get_rc(path[-1])
     
-    # Determine potential moves (Up, Down, Left, Right)
     neighbors = [
         (head_r - 1, head_c), (head_r + 1, head_c),
         (head_r, head_c - 1), (head_r, head_c + 1)
     ]
     
-    # Occupied set (Walls, Obstacles, Other Snakes)
-    # Note: For simple "Initial Freedom", we consider other snakes as static blocks
-    
     for nr, nc in neighbors:
-        # 1. Bounds check
         if nr < 0 or nr >= rows or nc < 0 or nc >= cols:
             continue
             
-        # 2. Obstacles check
         if (nr, nc) in obstacles_map:
             obs = obstacles_map[(nr, nc)]
-            # If obs is wall, wall_break, locked block -> blocked
-            # Holes -> depends? Usually holes kill you, so not "movable" safely? 
-            # Or holes is valid move but consequence? 
-            # Docs say "Hole - giải pháp / áp lực routing". 
-            # In Snake Out context, usually you can move INTO a hole (and die or teleport?).
-            # But "Movable" usually means "Can step there". 
-            # Let's assume Wall-like blocks are NO-GO.
             o_type = obs.get('type')
             if o_type in ['wall', 'wall_break', 'iced_snake', 'key_snake']:
                 continue
         
-        # 3. Snake check
         is_blocked_by_snake = False
         for s in all_snakes:
-            # Check all dots except possibly the tail (if we want to simulate tail chasing)
-            # For strict "Initial Freedom", let's block by all body parts
             s_path = s.get('path', [])
             for p in s_path:
                 sr, sc = get_rc(p)
@@ -114,15 +124,29 @@ def check_movable(snake, all_snakes, obstacles_map, rows, cols):
         if is_blocked_by_snake:
             continue
             
-        # If passed all checks, found a valid move
         return True
         
     return False
 
-def calculate(snakes, obstacles, rows, cols):
-    grid_area = rows * cols
+
+def calculate(snakes, obstacles, rows=None, cols=None):
+    """
+    Calculate difficulty score for a level.
+    
+    Formula (Max = 100):
+    - S (Snake Load): 30 pts
+    - F (Freedom): 40 pts
+    - O (Obstacles): 30 pts
+    
+    Grid bounds are calculated from data, not from frontend params.
+    """
+    
+    # Calculate grid bounds from data
+    bounds_h, bounds_w = calculate_bounding_box(snakes, obstacles)
+    grid_area = bounds_h * bounds_w
+    
     if grid_area == 0:
-         return {"difficulty_score": 0, "breakdown": {"S": 0, "F": 0, "O": 0}}
+        return {"difficulty_score": 0, "breakdown": {"S": 0, "F": 0, "O": 0}}
 
     # Pre-process Obstacles
     obstacles_map = {}
@@ -133,6 +157,7 @@ def calculate(snakes, obstacles, rows, cols):
     wall_break_count = 0
     iced_locked_count = 0
     key_locked_count = 0
+    obstacle_cells = 0
     
     for obs in obstacles:
         o_type = obs.get('type')
@@ -142,10 +167,12 @@ def calculate(snakes, obstacles, rows, cols):
         if cells:
             for c in cells:
                 obstacles_map[(c['row'], c['col'])] = obs
+                obstacle_cells += 1
         else:
-             obstacles_map[(obs['row'], obs['col'])] = obs
+            obstacles_map[(obs['row'], obs['col'])] = obs
+            obstacle_cells += 1
              
-        # Count
+        # Count by type
         if o_type == 'wall':
             wall_count += len(cells) if cells else 1
         elif o_type == 'hole':
@@ -161,66 +188,72 @@ def calculate(snakes, obstacles, rows, cols):
             
     tunnel_pair_count = int(tunnel_pair_count)
 
-    # --- S: Snake Load (Max 40) ---
-    total_snake = len(snakes)
-    if total_snake == 0:
-        return {"difficulty_score": 0, "breakdown": {"S":0, "F":0, "O":0}}
+    # --- S: Snake Load ---
+    # Điểm trực tiếp, không cap
+    total_snakes = len(snakes)
+    if total_snakes == 0:
+        return {"difficulty_score": 0, "breakdown": {"S": 0, "F": 0, "O": 0}}
         
     dots_lens = []
     corners = []
+    snake_cells = 0
+    
     for s in snakes:
         path = s.get('path', [])
         dots_lens.append(len(path))
         corners.append(get_snake_corners(path))
+        snake_cells += len(path)
         
-    avg_dot = sum(dots_lens) / total_snake
-    avg_corner = sum(corners) / total_snake
+    avg_dot = sum(dots_lens) / total_snakes
+    avg_corner = sum(corners) / total_snakes
     
-    # Dynamic Norms (Density based)
-    # Max snakes: Assume heavy density is grid_area / 4 (e.g. 100 cells -> 25 snakes)
-    max_snakes_norm = max(5, grid_area / 4)
-    s_val_count = normalize(total_snake, 0, max_snakes_norm)
+    # S sub-scores (không cap)
+    # Số lượng rắn: mỗi rắn = 2 pts
+    s_count = total_snakes * 2
+    # Độ dài trung bình: mỗi cell trung bình = 1 pt
+    s_len = avg_dot * 0.25
+    # Góc cua trung bình: mỗi góc trung bình = 2 pts
+    s_corner = avg_corner * 0.5
     
-    # Max len: Assume average length max is grid dimension
-    max_len_norm = max(5, max(rows, cols))
-    s_val_len = normalize(avg_dot, 2, max_len_norm)
-    
-    # Max corners: Use the actual max corners found in the current level (Data-driven)
-    # If all snakes are straight (max=0), score is 0.
-    max_corner_in_level = max(corners) if corners else 0
-    s_val_corner = normalize(avg_corner, 0, max(1, max_corner_in_level))
-    
-    # Weights for S (Total 40):
-    # Density (Count): 20 pts
-    # Length: 10 pts
-    # Complexity: 10 pts
-    S = (20 * s_val_count) + (10 * s_val_len) + (10 * s_val_corner)
+    S = s_count + s_len + s_corner
 
-    # --- F: Freedom (Max 30) ---
-    movable_count = 0
+    # --- F: Freedom ---
+    
+    # First, run validation to get depth and per-step stuck ratio
+    validator_snakes = []
     for s in snakes:
-        if check_movable(s, snakes, obstacles_map, rows, cols):
-            movable_count += 1
+        path = s.get('path', [])
+        path_tuples = []
+        for p in path:
+            if isinstance(p, dict):
+                path_tuples.append((p.get('row', 0), p.get('col', 0)))
+            else:
+                path_tuples.append((p[0], p[1]))
+        validator_snakes.append({'path': path_tuples})
     
-    ratio = movable_count / total_snake
-    F = 30 * (1.0 - ratio)
+    validation_result = validate_level(validator_snakes, obstacles_map, bounds_h, bounds_w)
+    solve_depth = validation_result.get('steps', 1)
+    avg_stuck_ratio = validation_result.get('avg_stuck_ratio', 0)
+    
+    # 1. Tỷ lệ rắn bị kẹt trung bình qua các step (0-1, nhân 5)
+    f_stuck = avg_stuck_ratio * 5
+    
+    # 2. Độ lớn của grid: mỗi 100 cells = 1 pt
+    f_grid = grid_area / 100
+    
+    # 3. Chiều sâu: mỗi step = 2 pts
+    f_depth = solve_depth * 2
+    
+    F = f_stuck + f_grid + f_depth
 
-    # --- O: Obstacle (Max 30) ---
-    # Weighted Sum relative to Grid Area
-    # Weights reflecting interaction complexity
-    obs_raw_score = (wall_count * 1.0) + \
-                    (hole_count * 2.5) + \
-                    (tunnel_pair_count * 3.0) + \
-                    (wall_break_count * 3.0) + \
-                    (iced_locked_count * 5.0) + \
-                    (key_locked_count * 5.0)
-                    
-    # Max Obs Score Capacity:
-    # If ~30% of grid is obstacles (walls), score would be (0.3 * area).
-    # Complex obstacles add more density value.
-    max_obs_capacity = max(10, grid_area * 0.4)
-    
-    O = 30 * normalize(obs_raw_score, 0, max_obs_capacity)
+    # --- O: Obstacles ---
+    # Weighted sum trực tiếp, không cap
+    O = (wall_count * 1.0) + \
+        (hole_count * 2.5) + \
+        (tunnel_pair_count * 3.0) + \
+        (wall_break_count * 3.0) + \
+        (iced_locked_count * 5.0) + \
+        (key_locked_count * 5.0)
     
     total_score = S + F + O
     
@@ -230,5 +263,11 @@ def calculate(snakes, obstacles, rows, cols):
             "S": round(S, 1),
             "F": round(F, 1),
             "O": round(O, 1),
+        },
+        "details": {
+            "grid_bounds": f"{bounds_w}x{bounds_h}",
+            "total_snakes": total_snakes,
+            "solve_depth": solve_depth,
+            "occupied_cells": snake_cells + obstacle_cells
         }
     }

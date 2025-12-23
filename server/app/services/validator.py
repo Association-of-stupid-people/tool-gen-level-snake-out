@@ -54,14 +54,14 @@ def validate_level(snakes, obstacles_map, rows, cols):
 
     step_count = 0
     logs = []
+    per_step_stuck = []  # Track stuck ratio per step
     
     total_snakes = len(active_snakes)
     
-    while True:
-        step_count += 1
+    while active_snakes:
+        # Find movable snakes
         removable_indices = []
         
-        # Find movable snakes
         for i, s in enumerate(active_snakes):
             r, c = s['head']
             dr, dc = s['direction']
@@ -81,11 +81,18 @@ def validate_level(snakes, obstacles_map, rows, cols):
                 removable_indices.append(i)
         
         if not removable_indices:
-            # Deadlock or Finished
+            # Deadlock - remaining snakes are stuck
             break
+        
+        # Track stuck ratio this step
+        stuck_this_step = len(active_snakes) - len(removable_indices)
+        stuck_ratio = stuck_this_step / len(active_snakes) if active_snakes else 0
+        per_step_stuck.append(stuck_ratio)
+        
+        # Increment step AFTER finding movable (this step counts)
+        step_count += 1
             
         # Process Removal
-        # Sort indices desc to remove correctly
         removable_indices.sort(reverse=True)
         
         removed_this_step = []
@@ -101,6 +108,9 @@ def validate_level(snakes, obstacles_map, rows, cols):
         
     is_solvable = len(active_snakes) == 0
     
+    # Calculate average stuck ratio across all steps
+    avg_stuck_ratio = sum(per_step_stuck) / len(per_step_stuck) if per_step_stuck else 0
+    
     if not is_solvable:
         logs.append(f"FAILED: {len(active_snakes)} snakes stuck.")
     else:
@@ -111,5 +121,6 @@ def validate_level(snakes, obstacles_map, rows, cols):
         "remained_count": len(active_snakes),
         "total_snakes": total_snakes,
         "steps": step_count,
+        "avg_stuck_ratio": avg_stuck_ratio,
         "logs": logs
     }

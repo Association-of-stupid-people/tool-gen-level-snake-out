@@ -161,14 +161,44 @@ function JsonEditorSection({ gridData, onGridDataChange }: JsonEditorSectionProp
         }
     }
 
+    // Helper: Resize grid to match target dimensions (pad with false or crop)
+    const resizeGrid = (grid: boolean[][], targetRows: number, targetCols: number): boolean[][] => {
+        const result: boolean[][] = []
+        for (let r = 0; r < targetRows; r++) {
+            const row: boolean[] = []
+            for (let c = 0; c < targetCols; c++) {
+                row.push(grid[r]?.[c] ?? false)
+            }
+            result.push(row)
+        }
+        return result
+    }
+
     const handleApplyJson = () => {
         if (!isValid) return
         try {
-            const parsedGrid = parseAndValidate(jsonText)
+            let parsedGrid = parseAndValidate(jsonText)
+            
+            // Get current grid dimensions
+            const targetRows = gridData?.length || 10
+            const targetCols = gridData?.[0]?.length || 10
+            const jsonRows = parsedGrid.length
+            const jsonCols = parsedGrid[0]?.length || 0
+            
+            // Check if resize is needed
+            const needsResize = jsonRows !== targetRows || jsonCols !== targetCols
+            
+            if (needsResize) {
+                parsedGrid = resizeGrid(parsedGrid, targetRows, targetCols)
+                addNotification('warning', `Grid resized from ${jsonCols}×${jsonRows} to ${targetCols}×${targetRows}`)
+            }
+            
             onGridDataChange?.(parsedGrid)
             setIsUserEditing(false)
             setJsonText(formatGrid(parsedGrid)) // Reformat properly
-            addNotification('success', 'Grid updated')
+            if (!needsResize) {
+                addNotification('success', 'Grid updated')
+            }
         } catch (e) {
             addNotification('error', 'Failed to parse Grid')
         }

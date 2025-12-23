@@ -204,6 +204,10 @@ function App() {
 
   const handleCellToggle = (row: number, col: number, mode: 'draw' | 'erase' = 'draw') => {
     setGridData(prev => {
+      // Bounds check to prevent crash
+      if (row < 0 || row >= prev.length || col < 0 || col >= (prev[0]?.length || 0)) {
+        return prev
+      }
       const newData = prev.map(r => [...r])
       if (mode === 'draw') {
         if (currentTool === 'pen') {
@@ -238,7 +242,11 @@ function App() {
   const handleBulkCellToggle = (updates: { row: number, col: number }[], mode: 'draw' | 'erase' = 'draw') => {
     setGridData(prev => {
       const newData = prev.map(r => [...r])
+      const maxRow = prev.length
+      const maxCol = prev[0]?.length || 0
       updates.forEach(({ row, col }) => {
+        // Bounds check to prevent crash
+        if (row < 0 || row >= maxRow || col < 0 || col >= maxCol) return
         if (mode === 'draw') {
           newData[row][col] = true
         } else {
