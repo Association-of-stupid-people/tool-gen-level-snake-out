@@ -314,11 +314,6 @@ function App() {
     setSelectedArrows(new Set())
   }
 
-  // Clear arrow selection
-  const _handleClearSelection = () => {
-    setSelectedArrows(new Set())
-  }
-
   const handleObstacleDataUpdate = (id: string | number, updates: any) => {
     // If ID is numeric (or numeric string), check generatorOverlays
     const numericId = typeof id === 'number' ? id : parseInt(id as string)

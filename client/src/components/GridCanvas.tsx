@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
 import { useNotification } from '../contexts/NotificationContext'
 
@@ -229,6 +229,30 @@ export function GridCanvas({
         // Apply zoom and pan
         ctx.translate(pan.x, pan.y)
         ctx.scale(zoom, zoom)
+
+        // Calculate visible cell range for viewport culling
+        const visibleMinX = -pan.x / zoom
+        const visibleMinY = -pan.y / zoom
+        const visibleMaxX = (canvas.width - pan.x) / zoom
+        const visibleMaxY = (canvas.height - pan.y) / zoom
+
+        const visibleMinCol = Math.max(0, Math.floor(visibleMinX / CELL_SIZE) - 1)
+        const visibleMaxCol = Math.min(cols - 1, Math.ceil(visibleMaxX / CELL_SIZE) + 1)
+        const visibleMinRow = Math.max(0, Math.floor(visibleMinY / CELL_SIZE) - 1)
+        const visibleMaxRow = Math.min(rows - 1, Math.ceil(visibleMaxY / CELL_SIZE) + 1)
+
+        // Helper: check if arrow is visible in viewport
+        const isArrowVisible = (arrow: typeof overlays extends undefined ? never : NonNullable<typeof overlays>['arrows'][0]) => {
+            if (!arrow.path) {
+                return arrow.row >= visibleMinRow && arrow.row <= visibleMaxRow &&
+                    arrow.col >= visibleMinCol && arrow.col <= visibleMaxCol
+            }
+            return arrow.path.some(cell =>
+                cell.row >= visibleMinRow && cell.row <= visibleMaxRow &&
+                cell.col >= visibleMinCol && cell.col <= visibleMaxCol
+            )
+        }
+
 
         // Draw grid cells
         // 1. Fill active cells and previews (Batch operations where possible)
@@ -471,8 +495,8 @@ export function GridCanvas({
                 drawObstacleItem(previewObstacle, true)
             }
 
-            // Draw Arrows (with connected paths)
-            overlays.arrows.forEach(arrow => {
+            // Draw Arrows (with connected paths) - only render visible arrows
+            overlays.arrows.filter(isArrowVisible).forEach(arrow => {
                 const endX = arrow.col * CELL_SIZE + CELL_SIZE / 2
                 const endY = arrow.row * CELL_SIZE + CELL_SIZE / 2
 

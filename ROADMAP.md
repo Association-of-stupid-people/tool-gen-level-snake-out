@@ -164,11 +164,11 @@ Lộ trình này phác thảo kế hoạch phát triển cho công cụ Snake Le
 
 #### **4.3 — Enhanced Arrow Drawing Toolkit**
 
-- [ ] Arrow selection (click to select).
-- [ ] Multi-select with Shift+click.
-- [ ] Bulk operations (delete, recolor, flip).
-- [ ] Edit existing arrow path, Extend/shorten arrow from head/tail (drag nodes).
-- [ ] Marquee selection (drag to create selection box).
+- [x] Arrow selection (click to select).
+- [x] Multi-select with Shift+click.
+- [x] Bulk operations (delete, recolor, flip).
+- [x] Edit existing arrow path, Extend/shorten arrow from head/tail (drag nodes).
+- [x] Marquee selection (right-drag to create selection box).
 
 
 
