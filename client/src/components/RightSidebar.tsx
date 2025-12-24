@@ -7,6 +7,7 @@ import { AnimatedButton } from './AnimatedButton'
 import { motion } from 'framer-motion'
 import { useLanguage } from '../i18n'
 import { useState, useEffect } from 'react'
+import { apiRequest } from '../utils/api'
 
 interface RightSidebarProps {
     mode: 'editor' | 'generator'
@@ -89,9 +90,8 @@ export function RightSidebar({
                 obstacles: generatorOverlays.obstacles
             }
 
-            const res = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/calculate-difficulty`, {
+            const res = await apiRequest('/calculate-difficulty', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             })
 

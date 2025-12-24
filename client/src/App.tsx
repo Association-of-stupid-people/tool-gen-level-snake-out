@@ -12,6 +12,7 @@ import { useHistory } from './hooks/useHistory'
 import { useLanguage } from './i18n'
 import { useAuth } from './contexts/AuthContext'
 import { LogOut } from 'lucide-react'
+import { apiRequest, apiRequestFormData } from './utils/api'
 
 import { SimulationModal } from './components/SimulationModal'
 
@@ -147,10 +148,7 @@ function App() {
         formData.append('custom_grid', params.customInput)
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/generate`, {
-        method: 'POST',
-        body: formData,
-      })
+      const response = await apiRequestFormData('/generate', formData)
 
       const data = await response.json()
       if (data.error) {
@@ -180,11 +178,8 @@ function App() {
 
   const handleValidateLevel = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/validate`, {
+      const response = await apiRequest('/validate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           rows: gridSize.height,
           cols: gridSize.width,
@@ -274,10 +269,7 @@ function App() {
       formData.append('method', 'auto') // Use smart auto-detection
 
       // Call server API
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/process-image`, {
-        method: 'POST',
-        body: formData
-      })
+      const response = await apiRequestFormData('/process-image', formData)
 
       const result = await response.json()
 
@@ -532,11 +524,8 @@ function App() {
     try {
       addNotification('info', 'Filling gaps...')
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/fill-gaps`, {
+      const response = await apiRequest('/fill-gaps', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           rows: gridSize.height,
           cols: gridSize.width,
