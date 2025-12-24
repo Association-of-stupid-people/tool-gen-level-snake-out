@@ -17,6 +17,10 @@ interface SettingsContextType {
     setLengthRange: (range: { min: number; max: number }) => void
     bendsRange: { min: number; max: number }
     setBendsRange: (range: { min: number; max: number }) => void
+    autoResizeGridOnImport: boolean
+    setAutoResizeGridOnImport: (value: boolean) => void
+    autoFillDrawOnImport: boolean
+    setAutoFillDrawOnImport: (value: boolean) => void
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined)
@@ -40,6 +44,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const [restrictDrawToColored, setRestrictDrawToColored] = useState(true)
     const [lengthRange, setLengthRange] = useState({ min: 3, max: 50 })
     const [bendsRange, setBendsRange] = useState({ min: 0, max: 20 })
+    const [autoResizeGridOnImport, setAutoResizeGridOnImport] = useState(true)
+    const [autoFillDrawOnImport, setAutoFillDrawOnImport] = useState(true)
 
     return (
         <SettingsContext.Provider
@@ -59,7 +65,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 lengthRange,
                 setLengthRange,
                 bendsRange,
-                setBendsRange
+                setBendsRange,
+                autoResizeGridOnImport,
+                setAutoResizeGridOnImport,
+                autoFillDrawOnImport,
+                setAutoFillDrawOnImport
             }}
         >
             {children}

@@ -34,7 +34,7 @@ function App() {
   const [isZoomInitialized, setIsZoomInitialized] = useState(false)
 
   // Global Settings
-  const { gridSize, backgroundColor, snakePalette, lengthRange, bendsRange } = useSettings()
+  const { gridSize, setGridSize, backgroundColor, snakePalette, lengthRange, bendsRange, autoResizeGridOnImport, autoFillDrawOnImport } = useSettings()
 
   // Grid Data State with History
   const [gridData, setGridData, undoGrid, redoGrid, canUndoGrid, canRedoGrid, resetGridData] = useHistory<boolean[][]>(
@@ -73,10 +73,24 @@ function App() {
   const obstacleUpdateCallback = React.useRef<((row: number, col: number, updates: any) => void) | null>(null)
   const obstacleDeleteCallback = React.useRef<((row: number, col: number) => void) | null>(null)
 
+  // Ref to track if we're currently importing (to skip grid reset)
+  const isImportingRef = React.useRef(false)
+  const pendingGridDataRef = React.useRef<boolean[][] | null>(null)
+
   const { addNotification } = useNotification()
 
   // Sync Grid Data when Grid Size changes (Reset logic)
   useEffect(() => {
+    // Skip reset if we're importing (import will set its own grid data)
+    if (isImportingRef.current) {
+      // Apply pending grid data if any
+      if (pendingGridDataRef.current) {
+        resetGridData(pendingGridDataRef.current)
+        pendingGridDataRef.current = null
+      }
+      isImportingRef.current = false
+      return
+    }
     // Create new grid with new dimensions
     const newGrid = Array(gridSize.height).fill(null).map(() => Array(gridSize.width).fill(false))
     // We purposefully reset history here as resizing invalidates old coords
@@ -374,23 +388,68 @@ function App() {
         return
       }
 
-      const newArrows: any[] = []
-      const newObstacles: any[] = []
-      let maxId = 0
-
-      // Coordinate transform helpers
-      const centerR = Math.floor(gridSize.height / 2)
-      const centerC = Math.floor(gridSize.width / 2)
-      const fromPos = (p: { x: number, y: number }) => ({
-        row: centerR - p.y,
-        col: p.x + centerC
-      })
-
       // Helper to map colorID to hex
       const getColor = (id: number | null) => {
         if (id === null || id === -1 || id === undefined) return undefined
         return snakePalette[id] || snakePalette[0]
       }
+
+      // === PHASE 1: Collect all raw positions first (in original coordinate system) ===
+      const allRawPositions: { x: number, y: number }[] = []
+
+      levelData.forEach((item: any) => {
+        if (item.itemType === 'icedSnake' || item.itemType === 'keySnake') return // No position
+        if (!item.position || !Array.isArray(item.position)) return
+        item.position.forEach((p: { x: number, y: number }) => {
+          allRawPositions.push(p)
+        })
+      })
+
+      // === PHASE 2: Calculate bounding box and determine grid size ===
+      let newWidth = gridSize.width
+      let newHeight = gridSize.height
+      let offsetRow = 0
+      let offsetCol = 0
+
+      if (autoResizeGridOnImport && allRawPositions.length > 0) {
+        // Find min/max in the raw coordinate system (x, y where y is inverted)
+        const minX = Math.min(...allRawPositions.map(p => p.x))
+        const maxX = Math.max(...allRawPositions.map(p => p.x))
+        const minY = Math.min(...allRawPositions.map(p => p.y))
+        const maxY = Math.max(...allRawPositions.map(p => p.y))
+
+        // Content dimensions
+        const contentWidth = maxX - minX + 1
+        const contentHeight = maxY - minY + 1
+
+        // Add padding (1 cell on each side)
+        const padding = 1
+        newWidth = contentWidth + padding * 2
+        newHeight = contentHeight + padding * 2
+
+        // Calculate offsets to center content in the new grid
+        // Content center in raw coords
+        const contentCenterX = (minX + maxX) / 2
+        const contentCenterY = (minY + maxY) / 2
+
+        // Offsets to adjust coordinate transform so content is centered
+        offsetRow = contentCenterY
+        offsetCol = -contentCenterX
+      }
+
+      // === PHASE 3: Define coordinate transform using calculated offsets ===
+      const centerR = Math.floor(newHeight / 2)
+      const centerC = Math.floor(newWidth / 2)
+
+      const fromPos = (p: { x: number, y: number }) => ({
+        row: Math.round(centerR - p.y + offsetRow),
+        col: Math.round(p.x + centerC + offsetCol)
+      })
+
+      // === PHASE 4: Parse all items with new coordinates ===
+      const newArrows: any[] = []
+      const newObstacles: any[] = []
+      let maxId = 0
 
       levelData.forEach((item: any) => {
         if (item.itemID !== null && item.itemID !== undefined) {
@@ -424,12 +483,7 @@ function App() {
         const positions = item.position.map(fromPos)
 
         if (item.itemType === 'snake') {
-          // JSON positions are Head -> Tail (or rather, exported as reversed path)
-          // Internal path expects Tail -> Head.
-          // Export: [...path].reverse(). So JSON[0] is End of path (Head).
-          // We need to reverse back to get [Start...End]
           const path = [...positions].reverse()
-
           const head = path[path.length - 1]
           const neck = path[path.length - 2]
 
@@ -478,7 +532,6 @@ function App() {
             color: getColor(item.colorID)
           })
         } else if (item.itemType === 'tunel') {
-          // Mapping direction {x,y} from directX/Y
           const dX = item.itemValueConfig?.directX
           const dY = item.itemValueConfig?.directY
 
@@ -490,14 +543,6 @@ function App() {
             else if (dX === 0 && dY === -1) dirStr = 'down'
           }
 
-          // Tunnel splits into 2 items if export grouped them? 
-          // Actually export separates them now properly as individual items with type 'tunel'.
-          // Wait, my export logic:
-          /*
-            levelData.push({ ... itemType: "tunel", position: [toPos(obs.row, obs.col)] ... })
-          */
-          // So export is 1 item per tunnel end. Good. Simple mapping.
-
           newObstacles.push({
             id: item.itemID,
             type: 'tunnel',
@@ -508,6 +553,50 @@ function App() {
           })
         }
       })
+
+      // === PHASE 5: Auto-fill draw layer from arrow positions ===
+      let newGrid: boolean[][] | null = null
+      if (autoFillDrawOnImport && newArrows.length > 0) {
+        // Create new grid with arrow path cells marked as true
+        newGrid = Array(newHeight).fill(null).map(() => Array(newWidth).fill(false))
+
+        newArrows.forEach(arrow => {
+          if (arrow.path && Array.isArray(arrow.path)) {
+            arrow.path.forEach((cell: { row: number, col: number }) => {
+              if (cell.row >= 0 && cell.row < newHeight && cell.col >= 0 && cell.col < newWidth) {
+                newGrid![cell.row][cell.col] = true
+              }
+            })
+          }
+        })
+
+        // Also mark obstacle cells
+        newObstacles.forEach(obs => {
+          if (obs.cells && Array.isArray(obs.cells)) {
+            obs.cells.forEach((cell: { row: number, col: number }) => {
+              if (cell.row >= 0 && cell.row < newHeight && cell.col >= 0 && cell.col < newWidth) {
+                newGrid![cell.row][cell.col] = true
+              }
+            })
+          } else if (obs.row !== undefined && obs.col !== undefined && obs.type !== 'iced_snake' && obs.type !== 'key_snake') {
+            if (obs.row >= 0 && obs.row < newHeight && obs.col >= 0 && obs.col < newWidth) {
+              newGrid![obs.row][obs.col] = true
+            }
+          }
+        })
+      }
+
+      // === PHASE 6: Apply changes ===
+      // If grid size changed, we need to handle grid reset carefully
+      if (autoResizeGridOnImport && allRawPositions.length > 0) {
+        // Set pending grid data BEFORE resizing so useEffect can apply it
+        pendingGridDataRef.current = newGrid
+        isImportingRef.current = true
+        setGridSize({ width: newWidth, height: newHeight })
+      } else if (newGrid) {
+        // No resize needed, just set grid directly
+        setGridData(() => newGrid!)
+      }
 
       setGeneratorOverlays({ arrows: newArrows, obstacles: newObstacles })
       setNextItemId(maxId + 1)
@@ -601,7 +690,7 @@ function App() {
                 {user.username || user.email || 'User'}
               </span>
             )}
-            
+
             {/* Language Toggle */}
             <div
               onClick={() => setLanguage(language === 'EN' ? 'VN' : 'EN')}

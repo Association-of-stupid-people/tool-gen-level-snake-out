@@ -1,9 +1,10 @@
-import { Grid, Wand2, Settings, Plus, X, ChevronDown, Sliders, Package, Ban, Palette, FileJson, Copy, Code, AlertTriangle, Trash2, Loader2 } from 'lucide-react'
+import { Grid, Wand2, Settings, Plus, X, ChevronDown, Sliders, Package, Ban, Palette, FileJson, Copy, Code, AlertTriangle, Trash2, Loader2, Upload } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../contexts/SettingsContext'
 import { AnimatedButton } from './AnimatedButton'
 import { CustomSelect } from './CustomSelect'
 import { CompactSelect } from './CompactSelect'
+import { ColorPickerPopup } from './ColorPickerPopup'
 import { useNotification } from '../contexts/NotificationContext'
 import { useLanguage } from '../i18n'
 import { useState, useEffect } from 'react'
@@ -178,21 +179,21 @@ function JsonEditorSection({ gridData, onGridDataChange }: JsonEditorSectionProp
         if (!isValid) return
         try {
             let parsedGrid = parseAndValidate(jsonText)
-            
+
             // Get current grid dimensions
             const targetRows = gridData?.length || 10
             const targetCols = gridData?.[0]?.length || 10
             const jsonRows = parsedGrid.length
             const jsonCols = parsedGrid[0]?.length || 0
-            
+
             // Check if resize is needed
             const needsResize = jsonRows !== targetRows || jsonCols !== targetCols
-            
+
             if (needsResize) {
                 parsedGrid = resizeGrid(parsedGrid, targetRows, targetCols)
                 addNotification('warning', `Grid resized from ${jsonCols}×${jsonRows} to ${targetCols}×${targetRows}`)
             }
-            
+
             onGridDataChange?.(parsedGrid)
             setIsUserEditing(false)
             setJsonText(formatGrid(parsedGrid)) // Reformat properly
@@ -276,7 +277,9 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
         filenameSuffix, setFilenameSuffix,
         restrictDrawToColored, setRestrictDrawToColored,
         lengthRange, setLengthRange,
-        bendsRange, setBendsRange
+        bendsRange, setBendsRange,
+        autoResizeGridOnImport, setAutoResizeGridOnImport,
+        autoFillDrawOnImport, setAutoFillDrawOnImport
     } = useSettings()
 
     // Obstacle Types
@@ -1105,6 +1108,37 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             </div>
                         </div>
 
+                        {/* Import Config */}
+                        <div className="bg-gray-700/50 rounded-xl p-4">
+                            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                                <Upload size={16} /> {t('importConfig')}
+                            </h3>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs text-gray-400">{t('autoResizeGridOnImport')}</label>
+                                    <button
+                                        onClick={() => setAutoResizeGridOnImport(!autoResizeGridOnImport)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoResizeGridOnImport ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                    >
+                                        <span
+                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoResizeGridOnImport ? 'translate-x-6' : 'translate-x-1'}`}
+                                        />
+                                    </button>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs text-gray-400">{t('autoFillDrawOnImport')}</label>
+                                    <button
+                                        onClick={() => setAutoFillDrawOnImport(!autoFillDrawOnImport)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoFillDrawOnImport ? 'bg-purple-600' : 'bg-gray-600'}`}
+                                    >
+                                        <span
+                                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoFillDrawOnImport ? 'translate-x-6' : 'translate-x-1'}`}
+                                        />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Export Settings */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
@@ -1127,7 +1161,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     className="w-full bg-gray-900/50 border border-gray-600/50 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
                                     placeholder="e.g. _v1"
                                 />
-                                <p className="text-[10px] text-gray-500 pl-1">{t('output')}: {filenamePrefix}_ID{filenameSuffix}.json</p>
+                                <p className="text-[10px] text-gray-500 pl-1">{t('output')}: {filenamePrefix}ID{filenameSuffix}.json</p>
                             </div>
                         </div>
 
@@ -1144,14 +1178,10 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             <div className="space-y-2">
                                 {snakePalette.map((color, idx) => (
                                     <div key={idx} className="flex items-center gap-2">
-                                        <div className="relative h-8 w-8 rounded-lg overflow-hidden border-0 ring-1 ring-white/20 shrink-0">
-                                            <input
-                                                type="color"
-                                                value={color}
-                                                onChange={(e) => handleColorChange(idx, e.target.value)}
-                                                className="absolute -top-[50%] -left-[50%] h-[200%] w-[200%] p-0 border-0 cursor-pointer"
-                                            />
-                                        </div>
+                                        <ColorPickerPopup
+                                            color={color}
+                                            onChange={(c) => handleColorChange(idx, c)}
+                                        />
                                         <input
                                             type="text"
                                             value={color}

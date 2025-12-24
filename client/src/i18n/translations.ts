@@ -243,6 +243,11 @@ export const translations = {
     selectShape: { EN: 'Select Shape', VN: 'Chọn hình dạng' },
     importMask: { EN: 'Import Mask', VN: 'Nhập mặt nạ' },
     clickOrDropImage: { EN: 'Click or Drop Image', VN: 'Nhấn hoặc thả ảnh' },
+
+    // Import Config Settings
+    importConfig: { EN: 'Import Config', VN: 'Cấu hình nhập' },
+    autoResizeGridOnImport: { EN: 'Auto-resize grid to level bounds', VN: 'Tự động resize grid theo level' },
+    autoFillDrawOnImport: { EN: 'Auto-fill draw layer from arrows', VN: 'Tự động tô draw layer theo arrow' },
 }
 
 export type TranslationKey = keyof typeof translations
