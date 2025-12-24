@@ -35,9 +35,9 @@ export async function apiRequest(
 ): Promise<Response> {
   const token = getAuthToken()
   
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string> || {}),
   }
 
   // Add auth token if available
@@ -71,8 +71,8 @@ export async function apiRequestFormData(
 ): Promise<Response> {
   const token = getAuthToken()
   
-  const headers: HeadersInit = {
-    ...options.headers,
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> || {}),
   }
 
   // Add auth token if available (don't set Content-Type for FormData)

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Lock, User, X, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { useLanguage } from '../i18n'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -11,7 +10,6 @@ interface AuthModalProps {
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const { login, register, authMethod, requiresUsername, supportsRegistration, isLoading } = useAuth()
-  const { t } = useLanguage()
   const [isRegisterMode, setIsRegisterMode] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
