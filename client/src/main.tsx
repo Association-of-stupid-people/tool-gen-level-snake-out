@@ -5,15 +5,21 @@ import App from './App.tsx'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { LanguageProvider } from './i18n'
+import { AuthProvider } from './contexts/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <LanguageProvider>
-      <SettingsProvider>
-        <NotificationProvider>
-          <App />
-        </NotificationProvider>
-      </SettingsProvider>
+      <AuthProvider>
+        <SettingsProvider>
+          <NotificationProvider>
+            <ProtectedRoute>
+              <App />
+            </ProtectedRoute>
+          </NotificationProvider>
+        </SettingsProvider>
+      </AuthProvider>
     </LanguageProvider>
   </StrictMode>,
 )

@@ -10,6 +10,8 @@ import { useSettings } from './contexts/SettingsContext'
 import { useNotification } from './contexts/NotificationContext'
 import { useHistory } from './hooks/useHistory'
 import { useLanguage } from './i18n'
+import { useAuth } from './contexts/AuthContext'
+import { LogOut } from 'lucide-react'
 
 import { SimulationModal } from './components/SimulationModal'
 
@@ -19,6 +21,7 @@ function App() {
   const [activeView, setActiveView] = useState<'grid' | 'generator'>('grid')
   const [isSimulationOpen, setIsSimulationOpen] = useState(false) // Simulation State
   const { language, setLanguage, t } = useLanguage() // Language from Context
+  const { user, logout } = useAuth() // Auth context
 
   // Tool State
   const [currentTool, setCurrentTool] = useState<'pen' | 'eraser' | 'shape'>('pen')
@@ -601,21 +604,40 @@ function App() {
             {activeView === 'generator' && <><Wand2 className="text-purple-500" /> {t('levelGenerator')}</>}
           </h1>
 
-          {/* Language Toggle - Right aligned */}
-          <div
-            onClick={() => setLanguage(language === 'EN' ? 'VN' : 'EN')}
-            className="relative w-20 h-7 bg-gray-700 rounded-full border border-gray-600 cursor-pointer select-none"
-          >
-            {/* Labels inside */}
-            <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium transition-colors duration-200 ${language === 'VN' ? 'text-gray-400' : 'text-transparent'}`}>EN</span>
-            <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-medium transition-colors duration-200 ${language === 'EN' ? 'text-gray-400' : 'text-transparent'}`}>VN</span>
-            {/* Sliding ball with text */}
+          {/* Right side controls */}
+          <div className="flex items-center gap-3">
+            {/* User info */}
+            {user && (
+              <span className="text-sm text-gray-400 dark:text-gray-500">
+                {user.username || user.email || 'User'}
+              </span>
+            )}
+            
+            {/* Language Toggle */}
             <div
-              className={`absolute top-1/2 -translate-y-1/2 w-9 h-5 bg-purple-500 rounded-full shadow flex items-center justify-center transition-all duration-200
-                ${language === 'VN' ? 'left-[39px]' : 'left-1'}`}
+              onClick={() => setLanguage(language === 'EN' ? 'VN' : 'EN')}
+              className="relative w-20 h-7 bg-gray-700 rounded-full border border-gray-600 cursor-pointer select-none"
             >
-              <span className="text-xs font-bold text-white">{language}</span>
+              {/* Labels inside */}
+              <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-medium transition-colors duration-200 ${language === 'VN' ? 'text-gray-400' : 'text-transparent'}`}>EN</span>
+              <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-medium transition-colors duration-200 ${language === 'EN' ? 'text-gray-400' : 'text-transparent'}`}>VN</span>
+              {/* Sliding ball with text */}
+              <div
+                className={`absolute top-1/2 -translate-y-1/2 w-9 h-5 bg-purple-500 rounded-full shadow flex items-center justify-center transition-all duration-200
+                  ${language === 'VN' ? 'left-[39px]' : 'left-1'}`}
+              >
+                <span className="text-xs font-bold text-white">{language}</span>
+              </div>
             </div>
+
+            {/* Logout Button */}
+            <button
+              onClick={logout}
+              className="p-1.5 text-gray-400 hover:text-red-400 dark:hover:text-red-500 transition-colors rounded-lg hover:bg-gray-700 dark:hover:bg-gray-800"
+              title="Logout"
+            >
+              <LogOut size={20} />
+            </button>
           </div>
         </div>
 

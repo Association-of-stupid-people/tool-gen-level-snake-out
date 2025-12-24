@@ -3,9 +3,21 @@ from app.services.algorithm import generate_level
 from app.services.validator import validate_level
 from app.services.difficulty_calculator import calculate
 from app.services.image_processor import process_image_to_grid, process_image_silhouette, process_image_dark_regions
+from app.auth.middleware import auth_middleware
 import json
+import os
 
 api_bp = Blueprint('api', __name__)
+
+# Check if auth is enabled (default: enabled)
+AUTH_ENABLED = os.getenv('AUTH_ENABLED', 'true').lower() == 'true'
+
+# Helper to conditionally apply auth
+def optional_auth(f):
+    """Apply auth only if AUTH_ENABLED is true"""
+    if AUTH_ENABLED:
+        return auth_middleware.require_auth(f)
+    return f
 
 # Route lấy danh sách hình dạng
 @api_bp.route('/shapes', methods=['GET'])
@@ -15,6 +27,7 @@ def get_shapes():
 
 # Route xử lý việc tạo level
 @api_bp.route('/generate', methods=['POST'])
+@optional_auth
 def generate():
     try:
         # 1. Lấy tham số form-data
@@ -87,6 +100,7 @@ def generate():
         return jsonify({"error": f"Lỗi server khi tạo level: {e}"}), 500
 
 @api_bp.route('/fill-gaps', methods=['POST'])
+@optional_auth
 def fill_gaps():
     """Fill remaining gaps in an existing level using smart simulation-based fill"""
     try:
@@ -133,6 +147,7 @@ def fill_gaps():
 
 
 @api_bp.route('/validate', methods=['POST'])
+@optional_auth
 def validate():
     try:
         data = request.get_json()
@@ -173,6 +188,7 @@ def validate():
         return jsonify({"error": str(e)}), 500
 
 @api_bp.route('/calculate-difficulty', methods=['POST'])
+@optional_auth
 def calculate_difficulty_route():
     try:
         data = request.get_json()
@@ -199,6 +215,7 @@ def calculate_difficulty_route():
 
 
 @api_bp.route('/process-image', methods=['POST'])
+@optional_auth
 def process_image_route():
     """
     Process an uploaded image and convert it to a grid mask.
