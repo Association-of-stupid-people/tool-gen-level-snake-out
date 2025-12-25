@@ -1,11 +1,11 @@
 import { Grid, Wand2, Settings, Plus, X, ChevronDown, Sliders, Package, Ban, Palette, FileJson, Copy, Code, AlertTriangle, Trash2, Loader2, Upload } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useSettings } from '../contexts/SettingsContext'
+import { useSettings } from '../stores'
 import { AnimatedButton } from './AnimatedButton'
 import { CustomSelect } from './CustomSelect'
 import { CompactSelect } from './CompactSelect'
 import { ColorPickerPopup } from './ColorPickerPopup'
-import { useNotification } from '../contexts/NotificationContext'
+import { useNotification } from '../stores'
 import { useLanguage } from '../i18n'
 import { useState, useEffect } from 'react'
 
@@ -482,7 +482,22 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
     return (
         <div className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col h-full">
             {/* Top Panel Buttons */}
-            <div className="flex p-2 gap-2 border-b border-gray-700">
+            <div className="flex p-2 gap-2 border-b border-gray-700 relative">
+                {/* Animated background */}
+                {(() => {
+                    const activeIndex = panels.findIndex(p => p.id === activePanel)
+                    return (
+                        <motion.div
+                            className="absolute top-2 bottom-2 bg-purple-600 rounded-lg shadow-lg shadow-purple-900/50"
+                            initial={false}
+                            animate={{
+                                left: `calc(${activeIndex} * (100% / ${panels.length}) + 8px)`,
+                                width: `calc(100% / ${panels.length} - 16px)`,
+                            }}
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        />
+                    )
+                })()}
                 {panels.map(panel => {
                     const Icon = panel.icon
                     const isActive = activePanel === panel.id
@@ -491,17 +506,10 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             key={panel.id}
                             onClick={() => onPanelChange(panel.id)}
                             className={`
-                                relative isolate flex-1 flex flex-col items-center justify-center p-2 rounded-lg gap-1 transition-colors
+                                relative isolate flex-1 flex flex-col items-center justify-center p-2 rounded-lg gap-1 transition-colors z-10
                                 ${isActive ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}
                             `}
                         >
-                            {isActive && (
-                                <motion.div
-                                    layoutId="sidebar-panel-active"
-                                    className="absolute inset-0 bg-purple-600 rounded-lg shadow-lg shadow-purple-900/50 -z-10"
-                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                />
-                            )}
                             <Icon size={20} className="relative z-10" />
                             <span className="relative z-10 text-xs font-medium">{panel.label}</span>
                         </button>
@@ -1089,7 +1097,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     />
                                 </div>
                             </div>
-                            
+
                             {/* Checkerboard View Toggle */}
                             <div className="mt-4 pt-4 border-t border-gray-600/50">
                                 <div className="flex items-center justify-between">
@@ -1099,14 +1107,12 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                     <button
                                         id="checkerboard-toggle"
                                         onClick={() => setCheckerboardView(!checkerboardView)}
-                                        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
-                                            checkerboardView ? 'bg-purple-500' : 'bg-gray-600'
-                                        }`}
+                                        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checkerboardView ? 'bg-purple-500' : 'bg-gray-600'
+                                            }`}
                                     >
                                         <span
-                                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${
-                                                checkerboardView ? 'translate-x-5' : 'translate-x-0'
-                                            }`}
+                                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${checkerboardView ? 'translate-x-5' : 'translate-x-0'
+                                                }`}
                                         />
                                     </button>
                                 </div>

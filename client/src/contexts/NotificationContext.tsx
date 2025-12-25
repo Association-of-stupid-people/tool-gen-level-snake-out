@@ -1,53 +1,21 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { CheckCircle, AlertCircle, Info, X, AlertTriangle } from 'lucide-react'
+import { useNotificationStore, type Notification } from '../stores'
 
-export type NotificationType = 'success' | 'error' | 'info' | 'warning'
+// Re-export for backward compatibility
+export { useNotification } from '../stores'
+export type { NotificationType, Notification } from '../stores'
 
-export interface Notification {
-    id: string
-    type: NotificationType
-    message: string
-}
-
-interface NotificationContextType {
-    addNotification: (type: NotificationType, message: string, duration?: number) => void
-    removeNotification: (id: string) => void
-}
-
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
-
-export function useNotification() {
-    const context = useContext(NotificationContext)
-    if (!context) {
-        throw new Error('useNotification must be used within a NotificationProvider')
-    }
-    return context
-}
-
+// Provider only renders the notification UI
 export function NotificationProvider({ children }: { children: ReactNode }) {
-    const [notifications, setNotifications] = useState<Notification[]>([])
-
-    const addNotification = useCallback((type: NotificationType, message: string, duration = 5000) => {
-        const id = Math.random().toString(36).substring(2, 9)
-        console.log(`Adding notification: ${message} (${id})`)
-        setNotifications(prev => [...prev, { id, type, message }])
-
-        if (duration > 0) {
-            setTimeout(() => {
-                removeNotification(id)
-            }, duration)
-        }
-    }, [])
-
-    const removeNotification = useCallback((id: string) => {
-        setNotifications(prev => prev.filter(n => n.id !== id))
-    }, [])
+    const notifications = useNotificationStore((s) => s.notifications)
+    const removeNotification = useNotificationStore((s) => s.removeNotification)
 
     return (
-        <NotificationContext.Provider value={{ addNotification, removeNotification }}>
+        <>
             {children}
             <NotificationContainer notifications={notifications} onClose={removeNotification} />
-        </NotificationContext.Provider>
+        </>
     )
 }
 
@@ -62,10 +30,6 @@ function NotificationContainer({ notifications, onClose }: { notifications: Noti
 }
 
 function NotificationItem({ notification, onClose }: { notification: Notification, onClose: (id: string) => void }) {
-    // Simple slide-in animation handled by CSS/Tailwind classes could be tricky without a library for enter/exit,
-    // but we can do a simple keyframe animation on mount.
-    // For simplicity and "animation day du", we'll add a keyframe animation class.
-
     const bgColors = {
         success: 'bg-green-600',
         error: 'bg-red-600',
@@ -96,7 +60,6 @@ function NotificationItem({ notification, onClose }: { notification: Notificatio
                 <X size={16} />
             </button>
 
-            {/* Inline style for the animation keyframes since we might not have them in tailwind config */}
             <style>{`
         @keyframes slideIn {
           from { opacity: 0; transform: translateX(100%); }
@@ -106,3 +69,4 @@ function NotificationItem({ notification, onClose }: { notification: Notificatio
         </div>
     )
 }
+

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { X, RotateCcw, Play, Square } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useLanguage } from '../i18n'
-import { useNotification } from '../contexts/NotificationContext'
+import { useNotification } from '../stores'
 
 // --- Types ---
 interface SimulationModalProps {

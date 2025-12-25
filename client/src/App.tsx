@@ -1,77 +1,121 @@
 import { useState, useEffect } from 'react'
-import { Grid, Wand2 } from 'lucide-react'
+import { Grid, Wand2, Loader2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import React from 'react'
 import { LeftSidebar } from './components/LeftSidebar'
 import { RightSidebar } from './components/RightSidebar'
 import { GridCanvas } from './components/GridCanvas'
-import { GeneratorPanel } from './components/GeneratorPanel'
-import { useSettings } from './contexts/SettingsContext'
-import { useNotification } from './contexts/NotificationContext'
-import { useHistory } from './hooks/useHistory'
+import { GeneratorContextMenu } from './components/GeneratorContextMenu'
+
+import { useSettings, useNotification, useToolsStore, useGridStore, useGridHistoryStore, useOverlaysHistoryStore } from './stores'
 import { useLanguage } from './i18n'
 import { useAuth } from './contexts/AuthContext'
 import { LogOut } from 'lucide-react'
 import { apiRequest, apiRequestFormData } from './utils/api'
-
 import { SimulationModal } from './components/SimulationModal'
+import { useGeneratorInteraction } from './hooks/useGeneratorInteraction'
 
 function App() {
-  // Navigation State
-  const [activeSidebar, setActiveSidebar] = useState<'panel1' | 'panel2' | 'settings'>('panel1')
-  const [activeView, setActiveView] = useState<'grid' | 'generator'>('grid')
+  // Navigation State - from Zustand store
+  const {
+    activeView, setActiveView,
+    activeSidebar, setActiveSidebar,
+    currentTool, setCurrentTool,
+    currentShape, setCurrentShape,
+    generatorTool, setGeneratorTool,
+    generatorSettings, setGeneratorSettings,
+    isGenerating, setIsGenerating,
+    generatedImage, setGeneratedImage,
+    levelJson, setLevelJson,
+    levelId, setLevelId
+  } = useToolsStore()
+
   const [isSimulationOpen, setIsSimulationOpen] = useState(false) // Simulation State
   const { language, setLanguage, t } = useLanguage() // Language from Context
   const { user, logout } = useAuth() // Auth context
 
-  // Tool State
-  const [currentTool, setCurrentTool] = useState<'pen' | 'eraser' | 'shape'>('pen')
-  const [currentShape, setCurrentShape] = useState<'rectangle' | 'circle' | 'line' | 'triangle' | 'diamond' | 'frame'>('rectangle')
-
-  // View State (Zoom/Pan Persistence)
-  const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [isZoomInitialized, setIsZoomInitialized] = useState(false)
+  // View State (Zoom/Pan Persistence) - from Zustand store
+  const { zoom, setZoom, pan, setPan, isZoomInitialized, setIsZoomInitialized } = useGridStore()
 
   // Global Settings
   const { gridSize, setGridSize, backgroundColor, snakePalette, lengthRange, bendsRange, autoResizeGridOnImport, autoFillDrawOnImport, checkerboardView } = useSettings()
 
-  // Grid Data State with History
-  const [gridData, setGridData, undoGrid, redoGrid, canUndoGrid, canRedoGrid, resetGridData] = useHistory<boolean[][]>(
-    Array(gridSize.height).fill(null).map(() => Array(gridSize.width).fill(false))
-  )
+  // Grid Data State with History - from Zustand historyStore
+  const gridData = useGridHistoryStore((s) => s.gridData)
+  const setGridData = useGridHistoryStore((s) => s.setGridData)
+  const resetGridData = useGridHistoryStore((s) => s.resetGrid)
+  const gridHistoryState = useGridHistoryStore.temporal.getState()
+  const undoGrid = gridHistoryState.undo
+  const redoGrid = gridHistoryState.redo
+  const canUndoGrid = gridHistoryState.pastStates.length > 0
+  const canRedoGrid = gridHistoryState.futureStates.length > 0
 
-  // Generator State
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null)
-  const [levelJson, setLevelJson] = useState<any | null>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [levelId, setLevelId] = useState(1)
   const [jsonInput, setJsonInput] = useState('')
+  // nextItemId from store with wrapper for functional updates
+  const nextItemId = useOverlaysHistoryStore((s) => s.nextItemId)
+  const storeSetNextItemId = useOverlaysHistoryStore((s) => s.setNextItemId)
+  const setNextItemId: React.Dispatch<React.SetStateAction<number>> = (valueOrFn) => {
+    if (typeof valueOrFn === 'function') {
+      const currentId = useOverlaysHistoryStore.getState().nextItemId
+      storeSetNextItemId(valueOrFn(currentId))
+    } else {
+      storeSetNextItemId(valueOrFn)
+    }
+  }
 
-  // Generator Drawing Tools State
-  const [generatorTool, setGeneratorTool] = useState<'arrow' | 'obstacle' | 'eraser' | 'none'>('arrow')
-  const [generatorSettings, setGeneratorSettings] = useState({
-    arrowColor: 'random', // 'random' or hex string
-    obstacleType: 'wall',
-    obstacleColor: 'random', // Added for colored obstacles
-    obstacleCount: 3, // Added for Wall Break countdown
-    tunnelDirection: 'right' // Direction for tunnel arrow
-  })
-  const [nextItemId, setNextItemId] = useState(0)
-
-  // Generator Overlays with History
-  const [generatorOverlays, setGeneratorOverlays, undoOverlays, redoOverlays, canUndoOverlays, canRedoOverlays] = useHistory<{
-    arrows: { id: number, row: number, col: number, direction: string, color: string, path?: { row: number, col: number }[], type?: string, keyId?: number, lockId?: number, snakeId?: number, countdown?: number }[],
-    obstacles: { id: number, row: number, col: number, type: string, color?: string, count?: number, cells?: { row: number, col: number }[], direction?: string, snakeId?: number, keySnakeId?: number, lockedSnakeId?: number, countdown?: number }[]
-  }>({ arrows: [], obstacles: [] })
+  // Generator Overlays with History - from Zustand historyStore
+  const arrows = useOverlaysHistoryStore((s) => s.arrows)
+  const obstacles = useOverlaysHistoryStore((s) => s.obstacles)
+  const setOverlays = useOverlaysHistoryStore((s) => s.setOverlays)
+  const generatorOverlays = { arrows, obstacles }
+  const setGeneratorOverlays = (data: typeof generatorOverlays | ((prev: typeof generatorOverlays) => typeof generatorOverlays)) => {
+    if (typeof data === 'function') {
+      const current = useOverlaysHistoryStore.getState()
+      const newData = data({ arrows: current.arrows, obstacles: current.obstacles })
+      setOverlays(newData)
+    } else {
+      setOverlays(data)
+    }
+  }
+  const overlaysHistoryState = useOverlaysHistoryStore.temporal.getState()
+  const undoOverlays = overlaysHistoryState.undo
+  const redoOverlays = overlaysHistoryState.redo
+  const canUndoOverlays = overlaysHistoryState.pastStates.length > 0
+  const canRedoOverlays = overlaysHistoryState.futureStates.length > 0
 
   // Arrow Selection State (for multi-select in Generator mode)
-  const [selectedArrows, setSelectedArrows] = useState<Set<number>>(new Set())
+  const selectedArrowIds = useOverlaysHistoryStore((s) => s.selectedArrowIds)
+  const setSelectedArrowIds = useOverlaysHistoryStore((s) => s.setSelectedArrowIds)
+  const selectedArrows = new Set(selectedArrowIds)
+  const setSelectedArrows: React.Dispatch<React.SetStateAction<Set<number>>> = (valueOrFn) => {
+    if (typeof valueOrFn === 'function') {
+      const currentSet = new Set(useOverlaysHistoryStore.getState().selectedArrowIds)
+      const newSet = valueOrFn(currentSet)
+      setSelectedArrowIds([...newSet])
+    } else {
+      setSelectedArrowIds([...valueOrFn])
+    }
+  }
 
   // Callback ref to auto-add obstacle from LeftSidebar  
   const obstacleTypeUsedCallback = React.useRef<((data: { type: string, row: number, col: number, color?: string, count?: number, keySnakeId?: number, lockedSnakeId?: number }) => void) | null>(null)
   const obstacleUpdateCallback = React.useRef<((row: number, col: number, updates: any) => void) | null>(null)
   const obstacleDeleteCallback = React.useRef<((row: number, col: number) => void) | null>(null)
+
+  // Generator Interaction Hook
+  const generatorInteraction = useGeneratorInteraction({
+    gridData,
+    generatorTool,
+    generatorSettings,
+    generatorOverlays: generatorOverlays as any,
+    setGeneratorOverlays: setGeneratorOverlays as any,
+    setGridData,
+    nextItemId,
+    setNextItemId,
+    selectedArrows,
+    setSelectedArrows,
+    onObstacleTypeUsed: (data) => obstacleTypeUsedCallback.current?.(data)
+  })
 
   // Ref to track if we're currently importing (to skip grid reset)
   const isImportingRef = React.useRef(false)
@@ -174,7 +218,7 @@ function App() {
         // Auto-import to grid (don't auto-fill draw layer when generating)
         // Use grid size from response to ensure correct coordinate transform
         if (data.level_json) {
-          const sourceGridSize = data.grid_rows && data.grid_cols 
+          const sourceGridSize = data.grid_rows && data.grid_cols
             ? { rows: data.grid_rows, cols: data.grid_cols }
             : undefined
           handleImportJson(JSON.stringify(data.level_json), false, sourceGridSize)
@@ -730,70 +774,172 @@ function App() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden relative">
+        <div className="flex-1 overflow-hidden relative bg-gray-900">
+          <GridCanvas
+            gridData={gridData}
+            onCellToggle={activeView === 'generator' ? generatorInteraction.handleCellInteraction : handleCellToggle}
+            onBulkCellToggle={handleBulkCellToggle}
+            rows={gridSize.height}
+            cols={gridSize.width}
+            currentTool={activeView === 'generator'
+              ? (generatorTool === 'eraser' ? 'eraser' : 'pen')
+              : currentTool}
+            currentShape={activeView === 'generator' ? 'rectangle' : currentShape}
+            zoom={zoom}
+            setZoom={setZoom}
+            pan={pan}
+            setPan={setPan}
+            isZoomInitialized={isZoomInitialized}
+            setIsZoomInitialized={setIsZoomInitialized}
+            checkerboardView={checkerboardView}
+            readOnlyGrid={activeView === 'generator'}
+            overlayMode={activeView === 'generator' ? 'generator' : 'editor'}
+            overlays={generatorOverlays}
+            selectedArrows={activeView === 'generator' ? selectedArrows : undefined}
+
+            // Map Generator Interactions
+            onRightMouseDown={activeView === 'generator' ? generatorInteraction.handleRightMouseDown : undefined}
+            onRightMouseMove={activeView === 'generator' ? generatorInteraction.handleRightMouseMove : undefined}
+            onRightMouseUp={activeView === 'generator' ? generatorInteraction.handleRightMouseUp : undefined}
+
+            previewPath={activeView === 'generator' ? generatorInteraction.previewPath : undefined}
+            previewObstacle={activeView === 'generator' ? generatorInteraction.previewObstacle : undefined}
+
+            marqueeSelection={activeView === 'generator' ? generatorInteraction.marqueeSelection : undefined}
+            justFinishedMarquee={activeView === 'generator' ? generatorInteraction.justFinishedMarquee : undefined}
+
+            editingArrowId={activeView === 'generator' ? generatorInteraction.editingArrowId : undefined}
+            editingEnd={activeView === 'generator' ? generatorInteraction.editingEnd : undefined}
+            editingPath={activeView === 'generator' ? generatorInteraction.editingPath : undefined}
+
+            onNodeHandleClick={activeView === 'generator' ? generatorInteraction.handleNodeHandleClick : undefined}
+            onPathEditMove={activeView === 'generator' ? generatorInteraction.handlePathEditMove : undefined}
+            onPathEditCommit={activeView === 'generator' ? generatorInteraction.handlePathEditCommit : undefined}
+
+            onValidate={handleValidateLevel}
+            onItemContextMenu={(e, item) => {
+              if (activeView === 'generator') {
+                generatorInteraction.setContextMenu({
+                  x: e.clientX,
+                  y: e.clientY,
+                  type: item.type,
+                  data: item.type === 'bulk'
+                    ? item.data
+                    : {
+                      ...item.data,
+                      id: item.type === 'arrow'
+                        ? generatorOverlays.arrows[item.index].id
+                        : generatorOverlays.obstacles[item.index].id
+                    },
+                  index: item.index
+                } as any)
+              }
+            }}
+          />
+
+          {/* Generator UI Overlays (Loading / Empty State) */}
           <AnimatePresence>
-            {activeView === 'grid' && (
+            {activeView === 'generator' && isGenerating && (
               <motion.div
-                key="grid-view"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="absolute inset-0 h-full w-full"
+                className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 z-20 text-gray-400"
               >
-                <GridCanvas
-                  gridData={gridData}
-                  onCellToggle={handleCellToggle}
-                  onBulkCellToggle={handleBulkCellToggle}
-                  rows={gridSize.height}
-                  cols={gridSize.width}
-                  currentTool={currentTool}
-                  currentShape={currentShape}
-                  zoom={zoom}
-                  setZoom={setZoom}
-                  pan={pan}
-                  setPan={setPan}
-                  isZoomInitialized={isZoomInitialized}
-                  setIsZoomInitialized={setIsZoomInitialized}
-                  checkerboardView={checkerboardView}
-                />
+                <Loader2 size={48} className="animate-spin mb-4 text-purple-500" />
+                <p>{t('generatingLevel' as any)}</p>
               </motion.div>
             )}
-            {activeView === 'generator' && (
+
+            {activeView === 'generator' && !gridData && !isGenerating && (
               <motion.div
-                key="generator-view"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="absolute inset-0 h-full w-full"
+                className="absolute inset-0 flex items-center justify-center z-10 bg-gray-900/50"
               >
-                <GeneratorPanel
-                  isGenerating={isGenerating}
-                  jsonInput={jsonInput}
-                  gridData={gridData}
-                  setGridData={setGridData}
-                  generatorTool={generatorTool}
-                  generatorSettings={generatorSettings}
-                  generatorOverlays={generatorOverlays as any}
-                  setGeneratorOverlays={setGeneratorOverlays as any}
-                  onObstacleTypeUsed={(data) => obstacleTypeUsedCallback.current?.(data)}
-                  onObstacleUpdate={(row, col, updates) => obstacleUpdateCallback.current?.(row, col, updates)}
-                  onObstacleDelete={(row, col) => obstacleDeleteCallback.current?.(row, col)}
-                  nextItemId={nextItemId}
-                  setNextItemId={setNextItemId}
-                  onValidate={handleValidateLevel}
-                  zoom={zoom}
-                  setZoom={setZoom}
-                  pan={pan}
-                  setPan={setPan}
-                  isZoomInitialized={isZoomInitialized}
-                  setIsZoomInitialized={setIsZoomInitialized}
-                  selectedArrows={selectedArrows}
-                  setSelectedArrows={setSelectedArrows}
-                  onDeleteSelectedArrows={handleDeleteSelectedArrows}
-                />
+                <div className="text-center p-8 bg-gray-800 rounded-2xl shadow-xl border border-gray-700">
+                  <p className="text-2xl mb-2">{t('readyToGen' as any)}</p>
+                  <p className="text-sm text-gray-400">{t('pasteJsonPrompt' as any)}</p>
+                </div>
               </motion.div>
+            )}
+
+            {/* Context Menu */}
+            {activeView === 'generator' && (
+              <GeneratorContextMenu
+                contextMenu={generatorInteraction.contextMenu}
+                onClose={() => generatorInteraction.setContextMenu(null)}
+                snakePalette={snakePalette}
+                selectedCount={selectedArrows.size}
+                // Arrow actions
+                onDeleteArrow={(id) => {
+                  setGeneratorOverlays(prev => ({
+                    ...prev,
+                    arrows: prev.arrows.filter(a => a.id !== id)
+                  }))
+                }}
+                onReverseArrow={(id, arrow) => {
+                  if (!arrow?.path || arrow.path.length < 2) return
+                  const reversedPath = [...arrow.path].reverse()
+                  const newEnd = reversedPath[reversedPath.length - 1]
+                  const prevCell = reversedPath[reversedPath.length - 2]
+                  let newDirection = arrow.direction
+                  const dr = newEnd.row - prevCell.row
+                  const dc = newEnd.col - prevCell.col
+                  if (dr === -1) newDirection = 'up'
+                  else if (dr === 1) newDirection = 'down'
+                  else if (dc === -1) newDirection = 'left'
+                  else if (dc === 1) newDirection = 'right'
+                  setGeneratorOverlays(prev => ({
+                    ...prev,
+                    arrows: prev.arrows.map(a =>
+                      a.id !== id ? a : {
+                        ...a,
+                        row: newEnd.row,
+                        col: newEnd.col,
+                        direction: newDirection,
+                        path: reversedPath
+                      }
+                    )
+                  }))
+                }}
+                onRecolorArrow={(id, color) => {
+                  setGeneratorOverlays(prev => ({
+                    ...prev,
+                    arrows: prev.arrows.map(a =>
+                      a.id !== id ? a : { ...a, color }
+                    )
+                  }))
+                }}
+                // Obstacle actions
+                onDeleteObstacle={(id) => {
+                  const obs = generatorOverlays.obstacles.find(o => o.id === id)
+                  setGeneratorOverlays(prev => ({
+                    ...prev,
+                    obstacles: prev.obstacles.filter(o => o.id !== id)
+                  }))
+                  if (obs && obstacleDeleteCallback.current) {
+                    obstacleDeleteCallback.current(obs.row, obs.col)
+                  }
+                }}
+                onUpdateObstacle={(id, updates) => {
+                  const obs = generatorOverlays.obstacles.find(o => o.id === id)
+                  setGeneratorOverlays(prev => ({
+                    ...prev,
+                    obstacles: prev.obstacles.map(o =>
+                      o.id !== id ? o : { ...o, ...updates }
+                    )
+                  }))
+                  if (obs && obstacleUpdateCallback.current) {
+                    obstacleUpdateCallback.current(obs.row, obs.col, updates)
+                  }
+                }}
+                // Bulk actions
+                onFlipSelected={() => generatorInteraction.handleFlipSelected()}
+                onRecolorSelected={(color) => generatorInteraction.handleRecolorSelected(color)}
+                onDeleteSelected={handleDeleteSelectedArrows}
+              />
             )}
           </AnimatePresence>
         </div>

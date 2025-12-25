@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
-import { useNotification } from '../contexts/NotificationContext'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useNotification } from '../stores'
 
 interface GridCanvasProps {
     gridData: boolean[][]
@@ -39,6 +40,7 @@ interface GridCanvasProps {
     isZoomInitialized: boolean
     setIsZoomInitialized: (initialized: boolean) => void
     checkerboardView?: boolean
+    overlayMode?: 'editor' | 'generator'
 }
 
 const CELL_SIZE = 25
@@ -75,7 +77,8 @@ export function GridCanvas({
     setPan,
     isZoomInitialized,
     setIsZoomInitialized,
-    checkerboardView = false
+    checkerboardView = false,
+    overlayMode = 'editor'
 }: GridCanvasProps) {
     const { addNotification } = useNotification()
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -95,6 +98,41 @@ export function GridCanvas({
     const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'success' | 'stuck'>('idle')
     const [showOverlays, setShowOverlays] = useState(true)
     const prevOverlaysRef = useRef(overlays)
+
+    // Animation state for overlay fade
+    const overlayOpacityRef = useRef(overlayMode === 'generator' ? 1 : 0)
+    const [animFrame, setAnimFrame] = useState(0)
+
+    // Animate overlay opacity when mode changes
+    useEffect(() => {
+        const target = overlayMode === 'generator' ? 1 : 0
+        // If close enough, snap to target
+        if (Math.abs(overlayOpacityRef.current - target) < 0.01) {
+            overlayOpacityRef.current = target
+            setAnimFrame(f => f + 1)
+            return
+        }
+
+        let animationFrameId: number
+        const animate = () => {
+            const current = overlayOpacityRef.current
+            const diff = target - current
+
+            if (Math.abs(diff) < 0.01) {
+                overlayOpacityRef.current = target
+                setAnimFrame(f => f + 1)
+                return
+            }
+
+            // Lerp opacity - fast fade (0.3)
+            overlayOpacityRef.current += diff * 0.3
+            setAnimFrame(f => f + 1)
+            animationFrameId = requestAnimationFrame(animate)
+        }
+
+        animate()
+        return () => cancelAnimationFrame(animationFrameId)
+    }, [overlayMode])
 
     // Reset validation state on overlay content change (not just on mount)
     useEffect(() => {
@@ -275,7 +313,7 @@ export function GridCanvas({
                 }
 
                 // Hide grid data if overlays exist (Generator Mode) and visuals are toggled off
-                if (isActive && (!overlays || showOverlays)) {
+                if (isActive && (overlayMode !== 'generator' || showOverlays)) {
                     ctx.fillStyle = '#8b5cf6' // Purple
                     ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
                 }
@@ -297,9 +335,9 @@ export function GridCanvas({
                         const x = c * CELL_SIZE
                         const y = r * CELL_SIZE
                         const isActive = gridData[r]?.[c]
-                        
+
                         // For colored cells, use lighter overlay; for empty cells, use darker
-                        if (isActive && (!overlays || showOverlays)) {
+                        if (isActive && (overlayMode !== 'generator' || showOverlays)) {
                             // Colored cell: use lighter overlay to maintain color visibility
                             ctx.fillStyle = 'rgba(0, 0, 0, 0.08)' // Very subtle darkening on colored cells
                         } else {
@@ -336,8 +374,12 @@ export function GridCanvas({
 
         ctx.stroke()
 
-        // Draw Overlays (Generator Mode) - Always show overlays regardless of toggle
-        if (overlays) {
+        // Draw Overlays with Fade Animation (based on opacity ref)
+        const currentOpacity = overlayOpacityRef.current
+        if (overlays && currentOpacity > 0) {
+            ctx.save()
+            ctx.globalAlpha = currentOpacity
+
             // Draw Obstacles
             const drawObstacleItem = (obs: any, isPreview: boolean = false) => {
                 const cells = obs.cells || [{ row: obs.row, col: obs.col }]
@@ -817,6 +859,25 @@ export function GridCanvas({
                     })
                 }
             }
+
+            // Draw Preview Obstacle
+            if (previewObstacle && previewObstacle.cells && previewObstacle.cells.length > 0) {
+                ctx.fillStyle = '#9ca3af' // Gray-400 for walls
+                if (previewObstacle.type === 'hole') ctx.fillStyle = '#000000' // Black for holes
+                else if (previewObstacle.type === 'tunnel') ctx.fillStyle = '#8b5cf6' // Violet for tunnels
+
+                previewObstacle.cells.forEach(cell => {
+                    const x = cell.col * CELL_SIZE
+                    const y = cell.row * CELL_SIZE
+                    ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
+
+                    // Add slight border for visibility
+                    ctx.strokeStyle = 'rgba(255,255,255,0.3)'
+                    ctx.lineWidth = 1
+                    ctx.strokeRect(x, y, CELL_SIZE, CELL_SIZE)
+                })
+            }
+            ctx.restore()
         }
 
         // Draw Marquee Selection Box
@@ -853,7 +914,7 @@ export function GridCanvas({
 
         ctx.restore()
         ctx.restore()
-    }, [gridData, rows, cols, zoom, pan, currentTool, isDrawing, shapeStart, shapePreview, currentShape, overlays, readOnlyGrid, previewPath, previewObstacle, showOverlays, canvasSize, selectedArrows, marqueeSelection, editingArrowId, editingEnd, editingPath])
+    }, [gridData, rows, cols, zoom, pan, currentTool, isDrawing, shapeStart, shapePreview, currentShape, overlays, readOnlyGrid, previewPath, previewObstacle, showOverlays, canvasSize, selectedArrows, marqueeSelection, editingArrowId, editingEnd, editingPath, overlayMode, animFrame])
 
     // Get grid coordinates from mouse event
     const getGridCoords = (e: React.MouseEvent) => {
@@ -1236,69 +1297,80 @@ export function GridCanvas({
 
                 <div className="flex-1" />
 
-                {/* Show/Hide Overlays Toggle - Only for Generator Mode (when overlays exist) */}
-                {overlays && (
-                    <div className="flex items-center gap-2 mr-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded transition-colors">
-                        <span className="text-[10px] text-gray-300 font-medium select-none">Visuals</span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={showOverlays}
-                                onChange={() => setShowOverlays(prev => !prev)}
-                                className="sr-only peer"
-                            />
-                            <div className="w-7 h-4 bg-gray-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500"></div>
-                        </label>
-                    </div>
-                )}
+                <div className="flex items-center gap-3">
+                    <AnimatePresence>
+                        {overlayMode === 'generator' && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex items-center gap-3 overflow-hidden whitespace-nowrap"
+                            >
+                                {/* Show/Hide Overlays Toggle */}
+                                <div className="flex items-center gap-2 px-2 h-6 bg-gray-700 hover:bg-gray-600 rounded transition-colors">
+                                    <span className="text-[10px] text-gray-300 font-medium select-none">Visuals</span>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={showOverlays}
+                                            onChange={() => setShowOverlays(prev => !prev)}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-7 h-4 bg-gray-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1.5px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500"></div>
+                                    </label>
+                                </div>
 
-                {/* Validate Button - always rendered but invisible when not in Generator mode */}
-                <button
-                    onClick={async () => {
-                        if (!onValidate || !overlays) return
-                        if (validationStatus === 'loading') return
-                        setValidationStatus('loading')
-                        try {
-                            const result = await onValidate()
-                            if (result.is_solvable) {
-                                setValidationStatus('success')
-                                addNotification('success', 'Level is solvable!')
-                            } else {
-                                setValidationStatus('stuck')
-                                addNotification('error', `Level is stuck!`)
-                            }
-                        } catch (e) {
-                            setValidationStatus('idle')
-                            addNotification('error', 'Validation failed')
-                        }
+                                {/* Validate Button */}
+                                <button
+                                    onClick={async () => {
+                                        if (!onValidate) return
+                                        if (validationStatus === 'loading') return
+                                        setValidationStatus('loading')
+                                        try {
+                                            const result = await onValidate()
+                                            if (result.is_solvable) {
+                                                setValidationStatus('success')
+                                                addNotification('success', 'Level is solvable!')
+                                            } else {
+                                                setValidationStatus('stuck')
+                                                addNotification('error', `Level is stuck!`)
+                                            }
+                                        } catch (e) {
+                                            setValidationStatus('idle')
+                                            addNotification('error', 'Validation failed')
+                                        }
+                                    }}
+                                    className="px-2 h-6 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-gray-300 transition-colors flex items-center gap-2"
+                                >
+                                    Validate
+                                    {validationStatus === 'loading' ? (
+                                        <Loader2 size={10} className="animate-spin text-gray-400" />
+                                    ) : (
+                                        <div className={`w-2.5 h-2.5 rounded-full border border-gray-500/50 ${validationStatus === 'success' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' :
+                                            validationStatus === 'stuck' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' :
+                                                'bg-gray-500' // idle
+                                            }`} />
+                                    )}
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* Reset Button */}
+                    <button onClick={() => {
+                        setZoom(1)
+                        const gridWidth = cols * CELL_SIZE
+                        const gridHeight = rows * CELL_SIZE
+                        setPan({
+                            x: (canvasSize.width - gridWidth) / 2,
+                            y: (canvasSize.height - gridHeight) / 2
+                        })
                     }}
-                    className={`mr-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-gray-300 transition-colors flex items-center gap-2 ${!(onValidate && overlays) ? 'invisible' : ''}`}
-                >
-                    Validate
-                    {validationStatus === 'loading' ? (
-                        <Loader2 size={10} className="animate-spin text-gray-400" />
-                    ) : (
-                        <div className={`w-2.5 h-2.5 rounded-full border border-gray-500/50 ${validationStatus === 'success' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' :
-                            validationStatus === 'stuck' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' :
-                                'bg-gray-500' // idle
-                            }`} />
-                    )}
-                </button>
-
-
-                {/* Reset Button */}
-                <button onClick={() => {
-                    setZoom(1)
-                    const gridWidth = cols * CELL_SIZE
-                    const gridHeight = rows * CELL_SIZE
-                    setPan({
-                        x: (canvasSize.width - gridWidth) / 2,
-                        y: (canvasSize.height - gridHeight) / 2
-                    })
-                }}
-                    className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-gray-300 transition-colors flex items-center justify-center">
-                    Reset
-                </button>
+                        className="px-2 h-6 bg-gray-700 hover:bg-gray-600 rounded text-[10px] text-gray-300 transition-colors flex items-center justify-center">
+                        Reset
+                    </button>
+                </div>
             </div>
             <div ref={containerRef} className="flex-1 overflow-hidden">
                 {canvasSize.width > 0 && (

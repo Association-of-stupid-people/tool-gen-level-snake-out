@@ -1,8 +1,8 @@
 import { CustomSelect } from './CustomSelect'
 import { ColorSelect } from './ColorSelect'
 import { Pencil, Eraser, Shapes, Upload, Trash2, Download, Copy, FileJson, Info, ArrowUpRight, Ban, FileUp, ClipboardPaste, Settings, Play, Calculator, Puzzle } from 'lucide-react'
-import { useSettings } from '../contexts/SettingsContext'
-import { useNotification } from '../contexts/NotificationContext'
+import { useSettings } from '../stores'
+import { useNotification } from '../stores'
 import { AnimatedButton } from './AnimatedButton'
 import { motion } from 'framer-motion'
 import { useLanguage } from '../i18n'
@@ -315,6 +315,17 @@ export function RightSidebar({
                 {/* Top Toggle Bar */}
                 <div className="p-4 border-b border-gray-700">
                     <div className="relative flex w-full h-10 bg-gray-900/50 rounded-lg p-1 isolate">
+                        {/* Animated background that slides between tabs */}
+                        <motion.div
+                            layoutId="rs-top-tab-bg"
+                            className="absolute top-1 bottom-1 bg-purple-600 rounded-md shadow-sm"
+                            style={{
+                                left: activeTab === 'tools' ? '4px' : '50%',
+                                right: activeTab === 'tools' ? '50%' : '4px',
+                            }}
+                            layout
+                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        />
                         <button
                             onClick={() => setActiveTab('tools')}
                             className={`
@@ -322,13 +333,6 @@ export function RightSidebar({
                                 ${activeTab === 'tools' ? 'text-white' : 'text-gray-400 hover:text-gray-300'}
                             `}
                         >
-                            {activeTab === 'tools' && (
-                                <motion.div
-                                    layoutId="rs-tab"
-                                    className="absolute inset-[3px] bg-purple-600 rounded-md shadow-sm -z-10"
-                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                />
-                            )}
                             <Pencil size={14} className="mr-2" />
                             <span className="translate-y-[1px]">{t('tools')}</span>
                         </button>
@@ -339,50 +343,55 @@ export function RightSidebar({
                                 ${activeTab === 'files' ? 'text-white' : 'text-gray-400 hover:text-gray-300'}
                             `}
                         >
-                            {activeTab === 'files' && (
-                                <motion.div
-                                    layoutId="rs-tab"
-                                    className="absolute inset-[3px] bg-purple-600 rounded-md shadow-sm -z-10"
-                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                />
-                            )}
                             <Download size={14} className="mr-2" />
                             <span className="translate-y-[1px]">{t('files')}</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
 
                     {/* Tools Tab Content */}
-                    <div className={activeTab === 'tools' ? 'block animate-in fade-in duration-300' : 'hidden'}>
+                    <div className={activeTab === 'tools' ? 'block' : 'hidden'} hidden={activeTab !== 'tools'}>
                         {/* Tool Selection - Matching Editor Tools Layout */}
-                        <div className="relative flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl isolate">
-                            {generatorTools.filter(t => t.id !== 'none').map(tool => (
-                                <button
-                                    key={tool.id}
-                                    onClick={() => setGeneratorTool?.(generatorTool === tool.id ? 'none' : tool.id)}
-                                    className={`
-                                        relative z-10 flex-1 flex flex-col items-center justify-center py-3 rounded-lg gap-1.5
-                                        transition-colors duration-200
-                                        ${generatorTool === tool.id
-                                            ? 'text-white'
-                                            : 'text-gray-400 hover:text-white'
-                                        }
-                                    `}
-                                >
-                                    {generatorTool === tool.id && (
+                        {(() => {
+                            const filteredTools = generatorTools.filter(t => t.id !== 'none')
+                            const activeIndex = filteredTools.findIndex(t => t.id === generatorTool)
+                            return (
+                                <div className="relative flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl isolate">
+                                    {/* Animated background */}
+                                    {activeIndex !== -1 && (
                                         <motion.div
-                                            layoutId="rs-tool-gen"
-                                            className="absolute inset-0 bg-purple-600 rounded-lg shadow-lg -z-10"
+                                            layoutId="rs-tools-bg"
+                                            className="absolute top-1.5 bottom-1.5 bg-purple-600 rounded-lg shadow-lg"
+                                            style={{
+                                                left: `calc(${activeIndex} * (100% / ${filteredTools.length}) + 4px)`,
+                                                width: `calc(100% / ${filteredTools.length} - 8px)`,
+                                            }}
+                                            layout
                                             transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                         />
                                     )}
-                                    {tool.icon && <tool.icon size={20} />}
-                                    <span className="text-xs font-medium">{tool.label}</span>
-                                </button>
-                            ))}
-                        </div>
+                                    {filteredTools.map(tool => (
+                                        <button
+                                            key={tool.id}
+                                            onClick={() => setGeneratorTool?.(generatorTool === tool.id ? 'none' : tool.id)}
+                                            className={`
+                                                relative z-10 flex-1 flex flex-col items-center justify-center py-3 rounded-lg gap-1.5
+                                                transition-colors duration-200
+                                                ${generatorTool === tool.id
+                                                    ? 'text-white'
+                                                    : 'text-gray-400 hover:text-white'
+                                                }
+                                            `}
+                                        >
+                                            {tool.icon && <tool.icon size={20} />}
+                                            <span className="text-xs font-medium">{tool.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )
+                        })()}
 
                         {/* Contextual Settings */}
                         {generatorTool === 'arrow' && generatorSettings && setGeneratorSettings && (
@@ -623,7 +632,7 @@ export function RightSidebar({
                     </div>
 
                     {/* Files Tab Content */}
-                    <div className={activeTab === 'files' ? 'block animate-in fade-in duration-300' : 'hidden'}>
+                    <div className={activeTab === 'files' ? 'block animate-in fade-in duration-300' : 'hidden'} hidden={activeTab !== 'files'}>
                         <div className="space-y-4">
                             {/* Level Config */}
                             <div className="bg-gray-700/50 rounded-xl p-4">
@@ -755,8 +764,12 @@ export function RightSidebar({
             {/* Top Toggle Bar - Single 'Tools' Tab */}
             <div className="p-4 border-b border-gray-700">
                 <div className="relative flex w-full h-10 bg-gray-900/50 rounded-lg p-1 isolate">
-                    {/* Background - Full Width for single item */}
-                    <div className="absolute top-1 bottom-1 left-1 right-1 bg-purple-600 rounded-md shadow-sm z-0" />
+                    {/* Background - Full Width for single item with layoutId for mode switch animation */}
+                    <motion.div
+                        layoutId="rs-top-tab-bg"
+                        className="absolute top-1 bottom-1 left-1 right-1 bg-purple-600 rounded-md shadow-sm z-0"
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
 
                     <button
                         className="relative z-10 flex-1 flex items-center justify-center text-xs font-medium text-white transition-colors duration-200"
@@ -770,39 +783,48 @@ export function RightSidebar({
             <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
 
                 {/* Tools Content */}
-                <div> {/* Wrapper to match structure roughly, though not strictly needed for animation if always visible */}
+                <div className={activeTab === 'tools' ? 'block' : 'hidden'} hidden={activeTab !== 'tools'}>
 
                     {/* Tool Selection */}
-                    <div className="relative flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl isolate">
-                        {tools.map(tool => {
-                            const Icon = tool.icon
-                            const isActive = currentTool === tool.id
-                            return (
-                                <button
-                                    key={tool.id}
-                                    onClick={() => onToolChange(tool.id)}
-                                    className={`
-                                        relative z-10 flex-1 flex flex-col items-center justify-center py-3 rounded-lg gap-1.5
-                                        transition-colors duration-200
-                                        ${isActive
-                                            ? 'text-white'
-                                            : 'text-gray-400 hover:text-white'
-                                        }
-                                    `}
-                                >
-                                    {isActive && (
-                                        <motion.div
-                                            layoutId="rs-tool-editor"
-                                            className="absolute inset-0 bg-purple-600 rounded-lg shadow-lg -z-10"
-                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                        />
-                                    )}
-                                    <Icon size={20} />
-                                    <span className="text-xs font-medium">{tool.label}</span>
-                                </button>
-                            )
-                        })}
-                    </div>
+                    {(() => {
+                        const activeIndex = tools.findIndex(t => t.id === currentTool)
+                        return (
+                            <div className="relative flex gap-2 mb-6 bg-gray-700/50 p-1.5 rounded-xl isolate">
+                                {/* Animated background */}
+                                <motion.div
+                                    layoutId="rs-tools-bg"
+                                    className="absolute top-1.5 bottom-1.5 bg-purple-600 rounded-lg shadow-lg"
+                                    style={{
+                                        left: `calc(${activeIndex} * (100% / ${tools.length}) + 4px)`,
+                                        width: `calc(100% / ${tools.length} - 8px)`,
+                                    }}
+                                    layout
+                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                />
+                                {tools.map(tool => {
+                                    const Icon = tool.icon
+                                    const isActive = currentTool === tool.id
+                                    return (
+                                        <button
+                                            key={tool.id}
+                                            onClick={() => onToolChange(tool.id)}
+                                            className={`
+                                                relative z-10 flex-1 flex flex-col items-center justify-center py-3 rounded-lg gap-1.5
+                                                transition-colors duration-200
+                                                ${isActive
+                                                    ? 'text-white'
+                                                    : 'text-gray-400 hover:text-white'
+                                                }
+                                            `}
+                                        >
+                                            <Icon size={20} />
+                                            <span className="text-xs font-medium">{tool.label}</span>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        )
+                    })()}
 
                     {/* Shape Selector - Show when Shape tool is active */}
                     {currentTool === 'shape' && (
