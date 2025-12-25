@@ -126,6 +126,7 @@ export const translations = {
     simulationMode: { EN: 'Simulation Mode', VN: 'Chế độ mô phỏng' },
     moves: { EN: 'Moves', VN: 'Số bước' },
     zoom: { EN: 'Zoom', VN: 'Phóng to' },
+    speed: { EN: 'Speed', VN: 'Tốc độ' },
     reset: { EN: 'Reset', VN: 'Đặt lại' },
     levelComplete: { EN: 'Level Complete!', VN: 'Hoàn thành màn!' },
     tapToMove: { EN: 'Tap any snake to move it', VN: 'Nhấn vào rắn để di chuyển' },

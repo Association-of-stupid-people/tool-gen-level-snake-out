@@ -47,6 +47,15 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
     const [isAutoPlaying, setIsAutoPlaying] = useState(false)
     const autoPlayIntervalRef = useRef<number>(0)
 
+    // Speed State (timescale multiplier)
+    const [speed, setSpeed] = useState(1)
+    const speedRef = useRef(speed)
+    const moveDurationRef = useRef(40) // Base 40ms, adjusted by speed
+    useEffect(() => {
+        speedRef.current = speed
+        moveDurationRef.current = 40 / speed
+    }, [speed])
+
     // Zoom & Pan State
     const [zoom, setZoom] = useState(1)
     const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -300,11 +309,11 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
     // Start autoplay
     const startAutoPlay = useCallback(() => {
         setIsAutoPlaying(true)
-        // Run autoplay step every 300ms
+        // Run autoplay step - interval adjusted by speed
         autoPlayIntervalRef.current = window.setInterval(() => {
             autoPlayStep()
-        }, 300)
-    }, [autoPlayStep])
+        }, 300 / speed)
+    }, [autoPlayStep, speed])
 
     // Stop autoplay
     const stopAutoPlay = useCallback(() => {
@@ -422,7 +431,6 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
 
         animatingSnakesRef.current.add(snakeId)
 
-        const MOVE_DURATION = 40 // ms for one cell movement
         let animationStartTime = Date.now()
         let shouldContinue = true
 
@@ -439,8 +447,9 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
                 return
             }
 
+            // Use precomputed duration from ref (updated when speed changes)
             const elapsed = Date.now() - animationStartTime
-            const progress = Math.min(elapsed / MOVE_DURATION, 1)
+            const progress = Math.min(elapsed / moveDurationRef.current, 1)
 
             // Single atomic state update
             setGameState(prev => {
@@ -879,23 +888,40 @@ export function SimulationModal({ isOpen, onClose, rows, cols, gridData, snakes,
                                     {t('moves')}: <span className="text-white font-mono">{gameState.moveCount}</span>
                                 </div>
 
-                                <div className="h-6 w-px bg-gray-700 mx-2" />
+                                <div className="h-6 w-px bg-gray-700" />
+
+                                {/* Speed Slider */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-400">{t('speed')}</span>
+                                    <input
+                                        type="range"
+                                        min="30"
+                                        max="300"
+                                        step="10"
+                                        value={speed * 100}
+                                        onChange={(e) => setSpeed(Number(e.target.value) / 100)}
+                                        className="w-20 accent-green-500"
+                                    />
+                                    <span className="text-sm text-gray-500 w-8 text-right">{speed.toFixed(1)}x</span>
+                                </div>
+
+                                <div className="h-6 w-px bg-gray-700" />
 
                                 {/* Zoom Slider */}
-                                <div className="flex items-center gap-2 mr-2">
-                                    <span className="text-xs text-gray-400">{t('zoom')}</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-400">{t('zoom')}</span>
                                     <input
                                         type="range"
                                         min="10"
                                         max="300"
                                         value={Math.round(zoom * 100)}
                                         onChange={(e) => setZoom(Number(e.target.value) / 100)}
-                                        className="w-24 accent-purple-500"
+                                        className="w-20 accent-purple-500"
                                     />
-                                    <span className="text-xs text-gray-500 w-8">{Math.round(zoom * 100)}%</span>
+                                    <span className="text-sm text-gray-500 w-10 text-right">{Math.round(zoom * 100)}%</span>
                                 </div>
 
-                                <div className="h-6 w-px bg-gray-700 mx-2" />
+                                <div className="h-6 w-px bg-gray-700" />
 
                                 <button onClick={resetGame} className="p-2 hover:bg-gray-700 rounded text-yellow-400 transition-colors" title={t('reset')}>
                                     <RotateCcw size={18} />
