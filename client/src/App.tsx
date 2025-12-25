@@ -171,9 +171,13 @@ function App() {
         setGeneratedImage(data.base64_image)
         setLevelJson(data.level_json)
 
-        // Auto-import to grid
+        // Auto-import to grid (don't auto-fill draw layer when generating)
+        // Use grid size from response to ensure correct coordinate transform
         if (data.level_json) {
-          handleImportJson(JSON.stringify(data.level_json))
+          const sourceGridSize = data.grid_rows && data.grid_cols 
+            ? { rows: data.grid_rows, cols: data.grid_cols }
+            : undefined
+          handleImportJson(JSON.stringify(data.level_json), false, sourceGridSize)
         }
 
         if (data.is_solvable === false) {
@@ -380,7 +384,7 @@ function App() {
 
 
 
-  const handleImportJson = (json: string) => {
+  const handleImportJson = (json: string, shouldAutoFill: boolean = true, sourceGridSize?: { rows: number, cols: number }) => {
     try {
       const levelData = JSON.parse(json)
       if (!Array.isArray(levelData)) {
@@ -406,12 +410,14 @@ function App() {
       })
 
       // === PHASE 2: Calculate bounding box and determine grid size ===
-      let newWidth = gridSize.width
-      let newHeight = gridSize.height
+      // If sourceGridSize is provided (from generate/fill gaps), use it to ensure correct coordinate transform
+      let newWidth = sourceGridSize ? sourceGridSize.cols : gridSize.width
+      let newHeight = sourceGridSize ? sourceGridSize.rows : gridSize.height
       let offsetRow = 0
       let offsetCol = 0
 
-      if (autoResizeGridOnImport && allRawPositions.length > 0) {
+      // Only auto-resize when explicitly importing (not from generate/fill gaps)
+      if (shouldAutoFill && autoResizeGridOnImport && allRawPositions.length > 0) {
         // Find min/max in the raw coordinate system (x, y where y is inverted)
         const minX = Math.min(...allRawPositions.map(p => p.x))
         const maxX = Math.max(...allRawPositions.map(p => p.x))
@@ -555,8 +561,9 @@ function App() {
       })
 
       // === PHASE 5: Auto-fill draw layer from arrow positions ===
+      // Only auto-fill when explicitly importing (not from generate or fill gaps)
       let newGrid: boolean[][] | null = null
-      if (autoFillDrawOnImport && newArrows.length > 0) {
+      if (shouldAutoFill && autoFillDrawOnImport && newArrows.length > 0) {
         // Create new grid with arrow path cells marked as true
         newGrid = Array(newHeight).fill(null).map(() => Array(newWidth).fill(false))
 
@@ -640,9 +647,13 @@ function App() {
         return
       }
 
-      // Import the result to update overlays
+      // Import the result to update overlays (don't auto-fill draw layer when filling gaps)
+      // Use grid size from response to ensure correct coordinate transform
       if (result.level_json) {
-        handleImportJson(JSON.stringify(result.level_json))
+        const sourceGridSize = result.grid_rows && result.grid_cols
+          ? { rows: result.grid_rows, cols: result.grid_cols }
+          : undefined
+        handleImportJson(JSON.stringify(result.level_json), false, sourceGridSize)
         addNotification('success', `Added ${result.snakes_added} snakes to fill gaps!`)
       }
     } catch (error) {

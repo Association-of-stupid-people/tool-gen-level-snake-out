@@ -141,5 +141,7 @@ def generate_level(arrow_count, custom_grid=None,
         'level_json': best_result['level_json_data'],
         'logs': final_logs,
         'is_solvable': best_result['is_solvable'],
-        'stuck_count': best_result['stuck_count']
+        'stuck_count': best_result['stuck_count'],
+        'grid_rows': ROWS,  # Return grid dimensions used
+        'grid_cols': COLS
     }

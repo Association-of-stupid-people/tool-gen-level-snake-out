@@ -147,7 +147,9 @@ def smart_fill_gaps(rows, cols, existing_snakes, obstacles_input, custom_grid,
         'logs': logs,
         'is_solvable': val_result['is_solvable'],
         'stuck_count': val_result['remained_count'],
-        'snakes_added': new_count - original_count
+        'snakes_added': new_count - original_count,
+        'grid_rows': rows,  # Return grid dimensions used
+        'grid_cols': cols
     }
 
 
