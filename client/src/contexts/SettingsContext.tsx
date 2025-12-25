@@ -21,6 +21,8 @@ interface SettingsContextType {
     setAutoResizeGridOnImport: (value: boolean) => void
     autoFillDrawOnImport: boolean
     setAutoFillDrawOnImport: (value: boolean) => void
+    checkerboardView: boolean
+    setCheckerboardView: (value: boolean) => void
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined)
@@ -46,6 +48,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const [bendsRange, setBendsRange] = useState({ min: 0, max: 20 })
     const [autoResizeGridOnImport, setAutoResizeGridOnImport] = useState(true)
     const [autoFillDrawOnImport, setAutoFillDrawOnImport] = useState(true)
+    const [checkerboardView, setCheckerboardView] = useState(false)
 
     return (
         <SettingsContext.Provider
@@ -69,7 +72,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 autoResizeGridOnImport,
                 setAutoResizeGridOnImport,
                 autoFillDrawOnImport,
-                setAutoFillDrawOnImport
+                setAutoFillDrawOnImport,
+                checkerboardView,
+                setCheckerboardView
             }}
         >
             {children}

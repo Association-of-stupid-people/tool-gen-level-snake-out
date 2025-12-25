@@ -105,7 +105,7 @@ export function GeneratorPanel({
     setSelectedArrows,
     onDeleteSelectedArrows
 }: GeneratorPanelProps) {
-    const { restrictDrawToColored, snakePalette, lengthRange, bendsRange } = useSettings()
+    const { restrictDrawToColored, snakePalette, lengthRange, bendsRange, checkerboardView } = useSettings()
     // Need to handle missing t if useLanguage isn't ready or mocked in some way, though it should be.
     // However, since ColorDropdown is a separate component, I need to pass t or useLanguage inside it?
     // ColorDropdown is defined in the same file but outside GeneratorPanel. It can't use the hook from GeneratorPanel.
@@ -950,6 +950,7 @@ export function GeneratorPanel({
                 onNodeHandleClick={handleNodeHandleClick}
                 onPathEditMove={handlePathEditMove}
                 onPathEditCommit={handlePathEditCommit}
+                checkerboardView={checkerboardView}
                 onItemContextMenu={(e, item) => {
                     setContextMenu({
                         x: e.clientX,

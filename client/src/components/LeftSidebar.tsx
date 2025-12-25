@@ -279,7 +279,8 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
         lengthRange, setLengthRange,
         bendsRange, setBendsRange,
         autoResizeGridOnImport, setAutoResizeGridOnImport,
-        autoFillDrawOnImport, setAutoFillDrawOnImport
+        autoFillDrawOnImport, setAutoFillDrawOnImport,
+        checkerboardView, setCheckerboardView
     } = useSettings()
 
     // Obstacle Types
@@ -1087,6 +1088,29 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                         max="100"
                                     />
                                 </div>
+                            </div>
+                            
+                            {/* Checkerboard View Toggle */}
+                            <div className="mt-4 pt-4 border-t border-gray-600/50">
+                                <div className="flex items-center justify-between">
+                                    <label className="text-xs text-gray-400 cursor-pointer" htmlFor="checkerboard-toggle">
+                                        Checkerboard View
+                                    </label>
+                                    <button
+                                        id="checkerboard-toggle"
+                                        onClick={() => setCheckerboardView(!checkerboardView)}
+                                        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                                            checkerboardView ? 'bg-purple-500' : 'bg-gray-600'
+                                        }`}
+                                    >
+                                        <span
+                                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform duration-200 ${
+                                                checkerboardView ? 'translate-x-5' : 'translate-x-0'
+                                            }`}
+                                        />
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">Alternating cell colors for better visibility</p>
                             </div>
                         </div>
 

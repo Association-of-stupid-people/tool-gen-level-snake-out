@@ -38,6 +38,7 @@ interface GridCanvasProps {
     setPan: (pan: { x: number, y: number }) => void
     isZoomInitialized: boolean
     setIsZoomInitialized: (initialized: boolean) => void
+    checkerboardView?: boolean
 }
 
 const CELL_SIZE = 25
@@ -73,7 +74,8 @@ export function GridCanvas({
     pan,
     setPan,
     isZoomInitialized,
-    setIsZoomInitialized
+    setIsZoomInitialized,
+    checkerboardView = false
 }: GridCanvasProps) {
     const { addNotification } = useNotification()
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -281,6 +283,31 @@ export function GridCanvas({
                 if (isPreview) {
                     ctx.fillStyle = 'rgba(139, 92, 246, 0.5)' // Semi-transparent purple
                     ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
+                }
+            }
+        }
+
+        // 2. Draw checkerboard pattern if enabled (draw after colored cells so it shows on top)
+        if (checkerboardView) {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    // Checkerboard pattern: alternate based on (row + col) % 2
+                    const isAlternate = (r + c) % 2 === 1
+                    if (isAlternate) {
+                        const x = c * CELL_SIZE
+                        const y = r * CELL_SIZE
+                        const isActive = gridData[r]?.[c]
+                        
+                        // For colored cells, use lighter overlay; for empty cells, use darker
+                        if (isActive && (!overlays || showOverlays)) {
+                            // Colored cell: use lighter overlay to maintain color visibility
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.08)' // Very subtle darkening on colored cells
+                        } else {
+                            // Empty cell: use slightly darker overlay (reduced from 0.15 to 0.1)
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)' // Subtle darkening on empty cells
+                        }
+                        ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE)
+                    }
                 }
             }
         }

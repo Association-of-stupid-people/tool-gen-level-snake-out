@@ -34,7 +34,7 @@ function App() {
   const [isZoomInitialized, setIsZoomInitialized] = useState(false)
 
   // Global Settings
-  const { gridSize, setGridSize, backgroundColor, snakePalette, lengthRange, bendsRange, autoResizeGridOnImport, autoFillDrawOnImport } = useSettings()
+  const { gridSize, setGridSize, backgroundColor, snakePalette, lengthRange, bendsRange, autoResizeGridOnImport, autoFillDrawOnImport, checkerboardView } = useSettings()
 
   // Grid Data State with History
   const [gridData, setGridData, undoGrid, redoGrid, canUndoGrid, canRedoGrid, resetGridData] = useHistory<boolean[][]>(
@@ -744,6 +744,7 @@ function App() {
                   setPan={setPan}
                   isZoomInitialized={isZoomInitialized}
                   setIsZoomInitialized={setIsZoomInitialized}
+                  checkerboardView={checkerboardView}
                 />
               </motion.div>
             )}

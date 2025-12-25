@@ -82,11 +82,6 @@ def read_level_file(file_path):
 
 
 def main():
-    print("=" * 60)
-    print("  LEVEL READER TOOL")
-    print("=" * 60)
-    print()
-    
     # Ask for directory path
     path = input("Enter directory path: ").strip()
     
@@ -98,28 +93,22 @@ def main():
     
     # Validate path
     if not os.path.exists(path):
-        print(f"\n[ERROR] Path does not exist - {path}")
+        print(f"[ERROR] Path does not exist - {path}", file=sys.stderr)
         return
     
     if not os.path.isdir(path):
-        print(f"\n[ERROR] Path is not a directory - {path}")
+        print(f"[ERROR] Path is not a directory - {path}", file=sys.stderr)
         return
     
     # Find JSON files
     json_files = [f for f in os.listdir(path) if f.lower().endswith('.json')]
     
     if not json_files:
-        print(f"\n[WARNING] No JSON files found in {path}")
+        print(f"[WARNING] No JSON files found in {path}", file=sys.stderr)
         return
     
-    print()
-    print("-" * 60)
-    print(f"Found {len(json_files)} JSON file(s)")
-    print("-" * 60)
-    print()
-    
-    valid_count = 0
-    invalid_count = 0
+    # CSV header
+    print("filename,snake,score")
     
     for filename in sorted(json_files, key=natural_sort_key):
         file_path = os.path.join(path, filename)
@@ -127,15 +116,7 @@ def main():
         
         if result:
             snake_count, score = result
-            print(f"[{filename}] | Snake - {snake_count} | Score - {score}")
-            valid_count += 1
-        else:
-            invalid_count += 1
-    
-    print()
-    print("-" * 60)
-    print(f"Valid levels: {valid_count}  |  Invalid/Skipped: {invalid_count}")
-    print("-" * 60)
+            print(f"{filename},{snake_count},{score}")
 
 
 if __name__ == "__main__":
