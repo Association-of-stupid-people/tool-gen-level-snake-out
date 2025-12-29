@@ -76,6 +76,11 @@ export function RightSidebar({
         setDifficultyData(null)
     }, [generatorOverlays])
 
+    // Reset tab to 'tools' when switching modes
+    useEffect(() => {
+        setActiveTab('tools')
+    }, [mode])
+
     const handleCalculateDifficulty = async () => {
         if (!generatorOverlays) return
 
