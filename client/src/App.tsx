@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Grid, Wand2, Loader2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import React from 'react'
@@ -65,7 +65,7 @@ function App() {
       storeSetNextItemId(valOrFn)
     }
   }
-  const generatorOverlays = { arrows, obstacles }
+  const generatorOverlays = useMemo(() => ({ arrows, obstacles }), [arrows, obstacles])
 
   const setGeneratorOverlays = (data: typeof generatorOverlays | ((prev: typeof generatorOverlays) => typeof generatorOverlays)) => {
     if (typeof data === 'function') {

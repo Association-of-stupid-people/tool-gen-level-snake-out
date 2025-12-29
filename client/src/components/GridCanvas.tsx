@@ -98,6 +98,7 @@ export function GridCanvas({
     const [validationStatus, setValidationStatus] = useState<'idle' | 'loading' | 'success' | 'stuck'>('idle')
     const [showOverlays, setShowOverlays] = useState(true)
     const prevOverlaysRef = useRef(overlays)
+    const prevGridDataRef = useRef(gridData)
 
     // Animation state for overlay fade
     const overlayOpacityRef = useRef(overlayMode === 'generator' ? 1 : 0)
@@ -134,17 +135,19 @@ export function GridCanvas({
         return () => cancelAnimationFrame(animationFrameId)
     }, [overlayMode])
 
-    // Reset validation state on overlay content change (not just on mount)
+    // Reset validation state on overlay or grid content change
     useEffect(() => {
-        // Skip if overlays didn't actually change (same reference or both undefined)
-        if (prevOverlaysRef.current === overlays) return
-        prevOverlaysRef.current = overlays
+        // Skip if nothing actually changed (same references)
+        if (prevOverlaysRef.current === overlays && prevGridDataRef.current === gridData) return
 
-        // Only reset if we have overlays (i.e., Generator mode)
-        if (overlays) {
+        prevOverlaysRef.current = overlays
+        prevGridDataRef.current = gridData
+
+        // Only reset if we are in Generator mode (which has overlays or could have)
+        if (overlayMode === 'generator') {
             setValidationStatus('idle')
         }
-    }, [overlays])
+    }, [overlays, gridData, overlayMode])
 
     // Resize canvas to fill container
     // Resize canvas to fill container

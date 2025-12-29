@@ -1,8 +1,7 @@
 import { CustomSelect } from './CustomSelect'
 import { ColorSelect } from './ColorSelect'
 import { Pencil, Eraser, Shapes, Upload, Trash2, Download, Copy, FileJson, Info, ArrowUpRight, Ban, FileUp, ClipboardPaste, Settings, Play, Calculator, Puzzle } from 'lucide-react'
-import { useSettings } from '../stores'
-import { useNotification } from '../stores'
+import { useSettings, useNotification, useGridHistoryStore } from '../stores'
 import { AnimatedButton } from './AnimatedButton'
 import { motion } from 'framer-motion'
 import { useLanguage } from '../i18n'
@@ -67,14 +66,15 @@ export function RightSidebar({
     const { addNotification } = useNotification()
     const { t } = useLanguage()
     const [activeTab, setActiveTab] = useState<'tools' | 'files'>('tools')
+    const gridData = useGridHistoryStore(s => s.gridData)
     const [difficultyData, setDifficultyData] = useState<any>(null)
     const [isCalculating, setIsCalculating] = useState(false)
     const [isFillGapsLoading, setIsFillGapsLoading] = useState(false)
 
-    // Clear difficulty data when grid changes
+    // Clear difficulty data when grid or overlays change
     useEffect(() => {
         setDifficultyData(null)
-    }, [generatorOverlays])
+    }, [generatorOverlays, gridData])
 
     // Reset tab to 'tools' when switching modes
     useEffect(() => {
