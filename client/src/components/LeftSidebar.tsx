@@ -1,11 +1,11 @@
-import { Grid, Wand2, Settings, Plus, X, ChevronDown, Sliders, Package, Ban, Palette, FileJson, Copy, Code, AlertTriangle, Trash2, Loader2, Upload } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useSettings } from '../stores'
+import { Grid, Wand2, Settings, Plus, X, Sliders, Package, Ban, Palette, FileJson, Copy, Code, AlertTriangle, Trash2, Loader2, Upload } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { ColorDropdown } from './ColorDropdown'
+import { useOverlaysHistoryStore, useGridHistoryStore, useSettings, useNotification, useToolsStore, type Obstacle } from '../stores'
 import { AnimatedButton } from './AnimatedButton'
 import { CustomSelect } from './CustomSelect'
 import { CompactSelect } from './CompactSelect'
 import { ColorPickerPopup } from './ColorPickerPopup'
-import { useNotification } from '../stores'
 import { useLanguage } from '../i18n'
 import { useState, useEffect } from 'react'
 
@@ -16,70 +16,8 @@ interface LeftSidebarProps {
     isGenerating?: boolean
     jsonInput?: string
     setJsonInput?: (value: string) => void
-    onObstacleTypeUsed?: (handler: (data: { id?: number, type: string, row: number, col: number, color?: string, count?: number, cells?: { row: number, col: number }[], keyId?: number, lockId?: number }) => void) => void
-    onObstacleUpdate?: (handler: (row: number, col: number, updates: any) => void) => void
-    onObstacleDelete?: (handler: (row: number, col: number) => void) => void
-    nextItemId: number
-    setNextItemId: React.Dispatch<React.SetStateAction<number>>
-    onDataUpdate?: (id: string | number, updates: any) => void
-    onObstacleAdd?: (data: { id?: number, type: string, row: number, col: number, color?: string, count?: number, cells?: { row: number, col: number }[], keyId?: number, lockId?: number, snakeId?: number, keySnakeId?: number, lockedSnakeId?: number, countdown?: number }) => void
-    // Grid Data props for JSON Editor
-    gridData?: boolean[][]
-    setGridData?: (data: boolean[][]) => void
-}
-
-interface ColorDropdownProps {
-    color: string
-    palette: string[]
-    onChange: (color: string) => void
-}
-
-function ColorDropdown({ color, palette, onChange }: ColorDropdownProps) {
-    const [isOpen, setIsOpen] = useState(false)
-    const { t } = useLanguage()
-    const index = palette.indexOf(color)
-
-    return (
-        <div className="relative">
-            <button
-                className="w-24 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white flex items-center justify-between hover:border-gray-500 transition-colors"
-                style={{ borderLeft: `8px solid ${color}` }}
-                onClick={() => setIsOpen(!isOpen)}
-            >
-                <span className="truncate">{t('color')} {index !== -1 ? index + 1 : '?'}</span>
-                <ChevronDown size={12} className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            <AnimatePresence>
-                {isOpen && (
-                    <>
-                        <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-                        <motion.div
-                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                            transition={{ duration: 0.15, ease: "easeOut" }}
-                            className="absolute top-full right-0 w-48 bg-gray-800 border border-gray-600 rounded mt-1 z-20 shadow-xl max-h-48 overflow-y-auto origin-top-right"
-                        >
-                            {palette.map((c, i) => (
-                                <button
-                                    key={i}
-                                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-700 text-left transition-colors border-b border-gray-700/50 last:border-0"
-                                    onClick={() => {
-                                        onChange(c)
-                                        setIsOpen(false)
-                                    }}
-                                >
-                                    <div className="w-3 h-3 rounded-full shrink-0 border border-gray-500" style={{ backgroundColor: c }} />
-                                    <span className="text-xs text-gray-200">{t('color')} {i + 1} <span className="text-gray-500 font-mono ml-1">({c})</span></span>
-                                </button>
-                            ))}
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
-        </div>
-    )
+    onImportJson?: (json: string) => void
+    onExportJson?: () => void
 }
 
 // JSON Editor Section Component for Grid Panel - Shows gridData (true/false array)
@@ -268,8 +206,9 @@ function JsonEditorSection({ gridData, onGridDataChange }: JsonEditorSectionProp
     )
 }
 
-export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerating, onObstacleTypeUsed, onObstacleUpdate, onObstacleDelete, nextItemId, setNextItemId, onDataUpdate, onObstacleAdd, gridData, setGridData }: LeftSidebarProps) {
+export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerating, jsonInput, setJsonInput, onImportJson, onExportJson }: LeftSidebarProps) {
     const { t } = useLanguage()
+    const { addNotification } = useNotification()
     const {
         gridSize, setGridSize,
         snakePalette, setSnakePalette,
@@ -283,29 +222,22 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
         checkerboardView, setCheckerboardView
     } = useSettings()
 
+    // Global Stores
+    const { gridData, setGridData } = useGridHistoryStore()
+    const {
+        obstacles,
+        addObstacle: addObstacleToStore,
+        updateObstacle: updateObstacleInStore,
+        deleteObstacle: deleteObstacleFromStore,
+        getNextId
+    } = useOverlaysHistoryStore()
+
     // Obstacle Types
     type ObstacleType = 'wall' | 'wall_break' | 'hole' | 'tunnel' | 'iced_snake' | 'key_snake'
 
-    interface ObstacleItem {
-        id: string | number
-        type: ObstacleType
-        // Position (optional, for manually drawn obstacles)
-        row?: number
-        col?: number
-        cells?: { row: number, col: number }[]
-        // Configs
-        wallBreakCounter?: number
-        color?: string
-        direction?: string // For tunnels
-        snakeId?: number
-        keySnakeId?: number
-        lockedSnakeId?: number
-        countdown?: number
-        // Calculated
-        // cellCount?: number // Could add this or just use cells.length
-    }
-
-    const [selectedObstacleType, setSelectedObstacleType] = useState<ObstacleType>('wall')
+    const { generatorSettings, setGeneratorSettings } = useToolsStore()
+    const selectedObstacleType = generatorSettings.obstacleType as ObstacleType
+    const setSelectedObstacleType = (type: ObstacleType) => setGeneratorSettings({ obstacleType: type })
     const [distributionStrategy, setDistributionStrategy] = useState<string>('SMART_DYNAMIC')
 
     // Strategy default configs
@@ -340,7 +272,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
         },
     }
 
-    // Strategy config state - starts with SMART_DYNAMIC defaults
+    // Strategy config state
     const [strategyConfig, setStrategyConfig] = useState<Record<string, any>>(
         STRATEGY_DEFAULTS.SMART_DYNAMIC
     )
@@ -354,91 +286,27 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
         setStrategyConfig(prev => ({ ...prev, [key]: value }))
     }
 
-    // const [jsonInput, setJsonInput] = useState('') // Lifted to App
     const [arrowCount, setArrowCount] = useState(10)
-    const [bonusFill, setBonusFill] = useState(true) // Default enabled for backward compat
-    // Removed local state for length/bends ranges in favor of SettingsContext
+    const [bonusFill, setBonusFill] = useState(true)
 
-    // Obstacles List
-    const [obstacles, setObstacles] = useState<ObstacleItem[]>([])
-
-    const addObstacle = (type: ObstacleType, row?: number, col?: number, color?: string, count?: number, cells?: { row: number, col: number }[], direction?: string, id?: number, skipSync?: boolean) => {
-        const newObs: ObstacleItem = {
-            id: id !== undefined ? id : nextItemId,
+    const addObstacle = (type: ObstacleType) => {
+        const id = getNextId()
+        const newObs: Obstacle = {
+            id,
             type,
-            row,
-            col,
-            cells,
+            row: 0,
+            col: 0,
             // Defaults
-            wallBreakCounter: type === 'wall_break' ? (count || 3) : undefined,
-            color: color || (type === 'hole' ? '#0000FF' : type === 'tunnel' ? '#FF00FF' : undefined),
-            direction: type === 'tunnel' ? (direction || 'right') : undefined,
+            color: type === 'hole' ? '#0000FF' : type === 'tunnel' ? '#FF00FF' : undefined,
+            direction: type === 'tunnel' ? 'right' : undefined,
             snakeId: type === 'iced_snake' ? 1 : undefined,
             keySnakeId: type === 'key_snake' ? 1 : undefined,
             lockedSnakeId: type === 'key_snake' ? 2 : undefined,
-            countdown: type === 'iced_snake' ? 10 : undefined
+            countdown: type === 'iced_snake' ? 10 : type === 'wall_break' ? 3 : undefined
         }
-        setObstacles(prev => [...prev, newObs]) // Use functional update to avoid stale closure
-        // Sync all obstacles to grid state (including special configs for icon rendering)
-        if (onObstacleAdd && !skipSync) {
-            onObstacleAdd({
-                ...newObs,
-                id: Number(newObs.id),
-                row: newObs.row || 0,
-                col: newObs.col || 0
-            })
-        }
-
-        if (id === undefined) {
-            setNextItemId(prev => prev + 1)
-        }
+        addObstacleToStore(newObs)
+        addNotification('info', t('obstacleAdded' as any))
     }
-
-    const removeObstacle = (id: string | number) => {
-        setObstacles(obstacles.filter(obs => obs.id !== id))
-    }
-
-    const updateObstacle = (id: string | number, updates: Partial<ObstacleItem>) => {
-        setObstacles(obstacles.map(obs => obs.id === id ? { ...obs, ...updates } : obs))
-        onDataUpdate?.(id, updates)
-    }
-
-    // Auto-add obstacle when drawn manually with full details
-    const handleObstacleTypeUsed = (obstacleData: { id?: number, type: string, row: number, col: number, color?: string, count?: number, cells?: { row: number, col: number }[], direction?: string }) => {
-        // console.log('Adding obstacle:', obstacleData) // Debug log
-        addObstacle(obstacleData.type as ObstacleType, obstacleData.row, obstacleData.col, obstacleData.color, obstacleData.count, obstacleData.cells, obstacleData.direction, obstacleData.id, true)
-    }
-
-    // Handle obstacle update from grid context menu
-    const handleObstacleUpdateFromGrid = (row: number, col: number, updates: any) => {
-        setObstacles(prev => prev.map(obs => {
-            // Match by row/col (primary cell)
-            if (obs.row === row && obs.col === col) {
-                return { ...obs, ...updates }
-            }
-            return obs
-        }))
-    }
-
-    // Handle obstacle delete from grid context menu
-    const handleObstacleDeleteFromGrid = (row: number, col: number) => {
-        setObstacles(prev => prev.filter(obs => !(obs.row === row && obs.col === col)))
-    }
-
-    // Register callbacks with parent on mount
-    useEffect(() => {
-        onObstacleTypeUsed?.(handleObstacleTypeUsed as any)
-        onObstacleUpdate?.(handleObstacleUpdateFromGrid)
-        onObstacleDelete?.(handleObstacleDeleteFromGrid)
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-    const panels = [
-        { id: 'panel1' as const, icon: Grid, label: t('grid') },
-        { id: 'panel2' as const, icon: Wand2, label: t('generator') },
-        { id: 'settings' as const, icon: Settings, label: t('settings') },
-    ]
-
-
 
     const handleGenerateClick = () => {
         if (onGenerate) {
@@ -460,24 +328,25 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                 distributionStrategy,
                 strategyConfig,
                 bonusFill,
-                customInput // Pass the grid data!
+                customInput
             })
         }
     }
 
-    const handleColorAdd = () => {
-        setSnakePalette([...snakePalette, '#000000'])
-    }
-
-    const handleColorRemove = (index: number) => {
-        setSnakePalette(snakePalette.filter((_, i) => i !== index))
-    }
-
+    const handleColorAdd = () => setSnakePalette([...snakePalette, '#000000'])
+    const handleColorRemove = (index: number) => setSnakePalette(snakePalette.filter((_, i) => i !== index))
     const handleColorChange = (index: number, color: string) => {
         const newPalette = [...snakePalette]
         newPalette[index] = color
         setSnakePalette(newPalette)
     }
+
+    const panels = [
+        { id: 'panel1' as const, icon: Grid, label: t('grid') },
+        { id: 'panel2' as const, icon: Wand2, label: t('generator') },
+        { id: 'settings' as const, icon: Settings, label: t('settings') },
+    ]
+
 
     return (
         <div className="w-80 bg-gray-800 border-r border-gray-700 flex flex-col h-full">
@@ -922,7 +791,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                         {obs.type.replace('_', ' ')}
                                                     </span>
                                                 </div>
-                                                <button onClick={() => removeObstacle(obs.id)} className="text-gray-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-gray-700">
+                                                <button onClick={() => deleteObstacleFromStore(Number(obs.id))} className="text-gray-500 hover:text-red-400 transition-colors p-1 rounded hover:bg-gray-700">
                                                     <X size={14} />
                                                 </button>
                                             </div>
@@ -947,7 +816,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                             type="number"
                                                             className="w-12 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-center focus:border-purple-500 focus:outline-none"
                                                             value={obs.row ?? 0}
-                                                            onChange={(e) => updateObstacle(obs.id, { row: parseInt(e.target.value) || 0 })}
+                                                            onChange={(e) => updateObstacleInStore(Number(obs.id), { row: parseInt(e.target.value) || 0 })}
                                                             placeholder="Y"
                                                         />
                                                         <span className="text-gray-500 text-xs self-center">,</span>
@@ -955,7 +824,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                             type="number"
                                                             className="w-12 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-center focus:border-purple-500 focus:outline-none"
                                                             value={obs.col ?? 0}
-                                                            onChange={(e) => updateObstacle(obs.id, { col: parseInt(e.target.value) || 0 })}
+                                                            onChange={(e) => updateObstacleInStore(Number(obs.id), { col: parseInt(e.target.value) || 0 })}
                                                             placeholder="X"
                                                         />
                                                     </div>
@@ -980,8 +849,8 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                     <span className="text-xs text-gray-400">{t('countdown')}</span>
                                                     <input
                                                         type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
-                                                        value={obs.wallBreakCounter}
-                                                        onChange={(e) => updateObstacle(obs.id, { wallBreakCounter: parseInt(e.target.value) || 0 })}
+                                                        value={obs.count}
+                                                        onChange={(e) => updateObstacleInStore(Number(obs.id), { count: parseInt(e.target.value) || 0 })}
                                                     />
                                                 </div>
                                             )}
@@ -992,7 +861,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                     <ColorDropdown
                                                         color={obs.color || ''}
                                                         palette={snakePalette}
-                                                        onChange={(c) => updateObstacle(obs.id, { color: c })}
+                                                        onChange={(c) => updateObstacleInStore(Number(obs.id), { color: c })}
                                                     />
                                                 </div>
                                             )}
@@ -1003,7 +872,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                     <div className="w-24">
                                                         <CustomSelect
                                                             value={obs.direction || 'right'}
-                                                            onChange={(val) => updateObstacle(obs.id, { direction: val })}
+                                                            onChange={(val) => updateObstacleInStore(Number(obs.id), { direction: val })}
                                                             options={[
                                                                 { value: 'up', label: t('upArrow') },
                                                                 { value: 'down', label: t('downArrow') },
@@ -1022,7 +891,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                         <input
                                                             type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                             value={obs.snakeId}
-                                                            onChange={(e) => updateObstacle(obs.id, { snakeId: parseInt(e.target.value) || 0 })}
+                                                            onChange={(e) => updateObstacleInStore(Number(obs.id), { snakeId: parseInt(e.target.value) || 0 })}
                                                         />
                                                     </div>
                                                     <div className="flex items-center justify-between gap-2">
@@ -1030,7 +899,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                         <input
                                                             type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                             value={obs.countdown || 0}
-                                                            onChange={(e) => updateObstacle(obs.id, { countdown: parseInt(e.target.value) || 0 })}
+                                                            onChange={(e) => updateObstacleInStore(Number(obs.id), { countdown: parseInt(e.target.value) || 0 })}
                                                         />
                                                     </div>
                                                 </div>
@@ -1043,7 +912,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                         <input
                                                             type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                             value={obs.keySnakeId}
-                                                            onChange={(e) => updateObstacle(obs.id, { keySnakeId: parseInt(e.target.value) || 0 })}
+                                                            onChange={(e) => updateObstacleInStore(Number(obs.id), { keySnakeId: parseInt(e.target.value) || 0 })}
                                                         />
                                                     </div>
                                                     <div className="flex items-center justify-between gap-2">
@@ -1051,7 +920,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                                         <input
                                                             type="number" className="w-16 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white text-left focus:border-purple-500 focus:outline-none"
                                                             value={obs.lockedSnakeId}
-                                                            onChange={(e) => updateObstacle(obs.id, { lockedSnakeId: parseInt(e.target.value) || 0 })}
+                                                            onChange={(e) => updateObstacleInStore(Number(obs.id), { lockedSnakeId: parseInt(e.target.value) || 0 })}
                                                         />
                                                     </div>
                                                 </div>
@@ -1138,7 +1007,7 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                             </div>
                         </div>
 
-                        {/* Import Config */}
+                        {/* Import/Export Section */}
                         <div className="bg-gray-700/50 rounded-xl p-4">
                             <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
                                 <Upload size={16} /> {t('importConfig')}
@@ -1165,6 +1034,29 @@ export function LeftSidebar({ activePanel, onPanelChange, onGenerate, isGenerati
                                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoFillDrawOnImport ? 'translate-x-6' : 'translate-x-1'}`}
                                         />
                                     </button>
+                                </div>
+                                <div className="pt-3 border-t border-gray-600/30">
+                                    <textarea
+                                        value={jsonInput || ''}
+                                        onChange={(e) => setJsonInput?.(e.target.value)}
+                                        placeholder={t('importPlaceholder' as any)}
+                                        className="w-full h-24 bg-gray-900/50 border border-gray-600/50 rounded-lg p-2 text-[10px] font-mono text-white resize-none scrollbar-hide focus:border-purple-500/50 outline-none"
+                                    />
+                                    <div className="flex gap-2 mt-2">
+                                        <button
+                                            onClick={() => onImportJson?.(jsonInput || '')}
+                                            className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs py-2 rounded font-medium flex items-center justify-center gap-2 transition-colors"
+                                        >
+                                            <Upload size={14} /> {t('import' as any)}
+                                        </button>
+                                        <button
+                                            onClick={() => onExportJson?.()}
+                                            className="bg-gray-700 hover:bg-gray-600 text-white text-xs py-2 px-3 rounded font-medium flex items-center justify-center gap-2 transition-colors"
+                                            title={t('export' as any)}
+                                        >
+                                            <FileJson size={14} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

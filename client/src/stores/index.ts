@@ -1,6 +1,6 @@
 // Zustand Stores Export
 export { useGridStore } from './gridStore'
-export { useOverlaysStore, type Arrow, type Obstacle } from './overlaysStore'
+export { type Arrow, type Obstacle } from './historyStore'
 export { useToolsStore } from './toolsStore'
 export {
     useGridHistoryStore,

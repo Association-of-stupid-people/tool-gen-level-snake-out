@@ -1,6 +1,33 @@
 import { create } from 'zustand'
 import { temporal } from 'zundo'
-import type { Arrow, Obstacle } from './overlaysStore'
+export interface Arrow {
+    id: number
+    row: number
+    col: number
+    direction: string
+    color: string
+    path?: { row: number; col: number }[]
+    type?: string
+    keyId?: number
+    lockId?: number
+    snakeId?: number
+    countdown?: number
+}
+
+export interface Obstacle {
+    id: number
+    row: number
+    col: number
+    type: string
+    color?: string
+    count?: number
+    cells?: { row: number; col: number }[]
+    direction?: string
+    snakeId?: number
+    keySnakeId?: number
+    lockedSnakeId?: number
+    countdown?: number
+}
 
 // Grid Data Store with History
 interface GridHistoryState {
@@ -89,6 +116,7 @@ interface OverlaysHistoryState {
     deleteObstacle: (id: number) => void
 
     setSelectedArrowIds: (ids: number[]) => void
+    toggleArrowSelection: (id: number, additive?: boolean) => void
     deleteSelectedArrows: () => void
     clearSelection: () => void
 
@@ -132,6 +160,15 @@ export const useOverlaysHistoryStore = create<OverlaysHistoryState>()(
 
             // Selection
             setSelectedArrowIds: (ids) => set({ selectedArrowIds: ids }),
+            toggleArrowSelection: (id, additive = false) =>
+                set((s) => {
+                    const currentSelection = additive ? s.selectedArrowIds : []
+                    const isSelected = currentSelection.includes(id)
+                    const newSelection = isSelected
+                        ? currentSelection.filter((sid) => sid !== id)
+                        : [...currentSelection, id]
+                    return { selectedArrowIds: newSelection }
+                }),
             deleteSelectedArrows: () =>
                 set((s) => ({
                     arrows: s.arrows.filter((a) => !s.selectedArrowIds.includes(a.id)),
@@ -167,3 +204,4 @@ export const useGridUndo = () => useGridHistoryStore.temporal.getState().undo
 export const useGridRedo = () => useGridHistoryStore.temporal.getState().redo
 export const useOverlaysUndo = () => useOverlaysHistoryStore.temporal.getState().undo
 export const useOverlaysRedo = () => useOverlaysHistoryStore.temporal.getState().redo
+

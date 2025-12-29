@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { useLanguage } from '../i18n'
 
 interface ColorDropdownProps {
     color: string
@@ -19,6 +20,7 @@ export function ColorDropdown({
     isRandomSelected
 }: ColorDropdownProps) {
     const [isOpen, setIsOpen] = useState(false)
+    const { t } = useLanguage()
     const index = palette.indexOf(color)
 
     return (
@@ -29,7 +31,7 @@ export function ColorDropdown({
                 onClick={() => setIsOpen(!isOpen)}
             >
                 <span className="truncate">
-                    {isRandomSelected ? 'Random Color' : `Color ${index !== -1 ? index + 1 : '?'}`}
+                    {isRandomSelected ? t('randomColor' as any) : `${t('color')} ${index !== -1 ? index + 1 : '?'}`}
                 </span>
                 <ChevronDown size={12} className="text-gray-400" />
             </button>
@@ -47,7 +49,7 @@ export function ColorDropdown({
                                 }}
                             >
                                 <div className="w-3 h-3 rounded-full shrink-0 border border-purple-500 bg-purple-500/20" />
-                                <span className="text-xs text-purple-300">Random Color</span>
+                                <span className="text-xs text-purple-300">{t('randomColor' as any)}</span>
                             </button>
                         )}
                         {palette.map((c, i) => (
@@ -60,7 +62,7 @@ export function ColorDropdown({
                                 }}
                             >
                                 <div className="w-3 h-3 rounded-full shrink-0 border border-gray-500" style={{ backgroundColor: c }} />
-                                <span className="text-xs text-gray-200">Color {i + 1} <span className="text-gray-500 font-mono ml-1">({c})</span></span>
+                                <span className="text-xs text-gray-200">{t('color')} {i + 1} <span className="text-gray-500 font-mono ml-1">({c})</span></span>
                             </button>
                         ))}
                     </div>
